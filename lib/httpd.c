@@ -178,7 +178,7 @@ httpd_accept_connection(httpd_t *httpd, int server_fd, int is_ipv6)
     remote = netutils_get_address(&remote_saddr, &remote_len, &remote_zone_id);
     assert (local_zone_id == remote_zone_id);
     
-#ifdef NOHOLD
+#if 0 //was #ifdef NOHOLD
     /* remove existing connections to make way for new connections:
      * this will only occur if max_connections > 2 */
     if (httpd->open_connections >= 2)  {
