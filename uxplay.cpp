@@ -1335,12 +1335,12 @@ static int start_dnssd(std::vector<char> hw_addr, std::string name) {
     /* (overwrites features set in dnssdint.h */
     /* default: FEATURES_1 = 0x5A7FFEE6, FEATURES_2 = 0 */
 
-    dnssd_set_airplay_features(dnssd,  0, 0); // AirPlay video supported 
+    dnssd_set_airplay_features(dnssd,  0, 1); // AirPlay video supported 
     dnssd_set_airplay_features(dnssd,  1, 1); // photo supported 
     dnssd_set_airplay_features(dnssd,  2, 1); // video protected with FairPlay DRM 
-    dnssd_set_airplay_features(dnssd,  3, 0); // volume control supported for videos
+    dnssd_set_airplay_features(dnssd,  3, 1); // volume control supported for videos
 
-    dnssd_set_airplay_features(dnssd,  4, 0); // http live streaming (HLS) supported
+    dnssd_set_airplay_features(dnssd,  4, 1); // http live streaming (HLS) supported
     dnssd_set_airplay_features(dnssd,  5, 1); // slideshow supported 
     dnssd_set_airplay_features(dnssd,  6, 1); // 
     dnssd_set_airplay_features(dnssd,  7, 1); // mirroring supported
@@ -1420,7 +1420,7 @@ static int start_dnssd(std::vector<char> hw_addr, std::string name) {
     */
 
     /* bit 27 of Features determines whether the AirPlay2 client-pairing protocol will be used (1) or not (0) */
-    dnssd_set_airplay_features(dnssd, 27, (int) setup_legacy_pairing);
+    //dnssd_set_airplay_features(dnssd, 27, (int) setup_legacy_pairing);
     return 0;
 }
 
