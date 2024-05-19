@@ -32,4 +32,5 @@ void ntp_timestamp_to_time(uint64_t ntp_timestamp, char *timestamp, size_t maxsi
 void ntp_timestamp_to_seconds(uint64_t ntp_timestamp, char *timestamp, size_t maxsize);
 int utils_ipaddress_to_string(int addresslen, const unsigned char *address, 
                               unsigned int zone_id, char *string, int len);
+uint64_t pointer_to_session_id(void * ptr);
 #endif

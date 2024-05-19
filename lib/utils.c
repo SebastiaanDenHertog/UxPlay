@@ -282,3 +282,11 @@ int utils_ipaddress_to_string(int addresslen, const unsigned char *address, unsi
     }
     return ret;
 }
+
+uint64_t pointer_to_session_id(void * ptr) {
+    char id[24];
+    char *end = NULL;
+    snprintf(id, sizeof(id), "%p", ptr);
+    return (uint64_t) strtoull(id, &end, 16);
+}
+

@@ -147,7 +147,7 @@ http_handler_playback_info(raop_conn_t *conn,
 {
     logger_log(conn->raop->logger, LOGGER_ERR, "client HTTP request GET playback_info is unhandled");
     assert(0);
-
+#if 0
 
     logger_log(conn->raop->logger, LOGGER_DEBUG, "http_handler_playback_info");
 
@@ -205,6 +205,7 @@ http_handler_playback_info(raop_conn_t *conn,
     plist_free(r_node);
 
     http_response_add_header(response, "Content-Type", "text/x-apple-plist+xml");
+#endif
 }
 
 static void
@@ -214,7 +215,7 @@ http_handler_set_property(raop_conn_t *conn,
 {
     logger_log(conn->raop->logger, LOGGER_ERR, "client HTTP request PUT setProperty is unhandled");
     assert(0);
-
+#if 0
 
     logger_log(conn->raop->logger, LOGGER_DEBUG, "http_handler_set_property");
 
@@ -233,6 +234,7 @@ http_handler_set_property(raop_conn_t *conn,
     } else {
         http_response_add_header(response, "Content-Length", "0");
     }
+#endif
 }
 
 static void
@@ -242,7 +244,7 @@ http_handler_play(raop_conn_t *conn,
 {
     logger_log(conn->raop->logger, LOGGER_ERR, "client HTTP request POST play is unhandled");
     assert(0);
-
+#if 0
 
     logger_log(conn->raop->logger, LOGGER_DEBUG, "http_handler_play");
 
@@ -281,6 +283,7 @@ http_handler_play(raop_conn_t *conn,
     } else {
         logger_log(conn->raop->logger, LOGGER_ERR, "Couldn't find Plist Data for /play, Unhandled");
     }
+#endif
 }
 
 static void
