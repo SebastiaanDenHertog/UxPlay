@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <time.h>
 
 #include "raop.h"
 #include "raop_rtp.h"
@@ -88,6 +89,9 @@ struct raop_conn_s {
     unsigned char *remote;
     int remotelen;
 
+    const char *cast_session;
+    int cast_sessionlen;
+
     unsigned int zone_id;
 
     bool have_active_remote;
@@ -95,6 +99,7 @@ struct raop_conn_s {
 typedef struct raop_conn_s raop_conn_t;
 
 #include "raop_handlers.h"
+#include "http_handlers.h"
 
 static void *
 conn_init(void *opaque, unsigned char *local, int locallen, unsigned char *remote, int remotelen, unsigned int zone_id) {
@@ -159,6 +164,8 @@ conn_request(void *ptr, http_request_t *request, http_response_t **response) {
     const char *method;
     const char *url;
     const char *cseq;
+    char protocol[12] = "RTSP/1.0";
+    
     char *response_data = NULL;
     int response_datalen = 0;
     logger_log(conn->raop->logger, LOGGER_DEBUG, "conn_request");
@@ -167,6 +174,11 @@ conn_request(void *ptr, http_request_t *request, http_response_t **response) {
     method = http_request_get_method(request);
     url = http_request_get_url(request);
     cseq = http_request_get_header(request, "CSeq");
+    if (!cseq ) {
+        get_protocol(url, protocol, sizeof(protocol));
+        logger_log(conn->raop->logger, LOGGER_INFO, "**** request without CSeq: %s %s %s", method,  url,  protocol);	
+    }
+    
     if (!conn->have_active_remote) {
         const char *active_remote = http_request_get_header(request, "Active-Remote");
         if (active_remote) {
@@ -178,16 +190,16 @@ conn_request(void *ptr, http_request_t *request, http_response_t **response) {
         }
     }
 
-    if (!method || !cseq) {
+    if (!method ) {
         return;
     }
-    logger_log(conn->raop->logger, LOGGER_DEBUG, "\n%s %s RTSP/1.0", method, url);
+    logger_log(conn->raop->logger, LOGGER_DEBUG, "\n%s %s %s", method, url, protocol);
     char *header_str= NULL; 
     http_request_get_header_string(request, &header_str);
     if (header_str) {
         logger_log(conn->raop->logger, LOGGER_DEBUG, "%s", header_str);
         bool data_is_plist = (strstr(header_str,"apple-binary-plist") != NULL);
-        bool data_is_text = (strstr(header_str,"text/parameters") != NULL);
+        bool data_is_text = (strstr(header_str,"text/") != NULL);
         free(header_str);
         int request_datalen;
         const char *request_data = http_request_get_data(request, &request_datalen);
@@ -215,12 +227,31 @@ conn_request(void *ptr, http_request_t *request, http_response_t **response) {
         }
     }
 
-    *response = http_response_init("RTSP/1.0", 200, "OK");
 
-    http_response_add_header(*response, "CSeq", cseq);
-    //http_response_add_header(*response, "Apple-Jack-Status", "connected; type=analog");
+    if (!strcmp(url, "/reverse")) {
+        *response = http_response_init("HTTP/1.1", 101, "Switching Protocols");
+    } else {
+        *response = http_response_init(protocol, 200, "OK");
+    }
+
+    if (cseq) {
+    /* is this really necessary? or is it obsolete? */
+        if (strcmp(method, "RECORD")) {
+	    http_response_add_header(*response, "Audio-Jack-Status", "connected; type=digital");
+        }
+        http_response_add_header(*response, "CSeq", cseq);
+    }
     http_response_add_header(*response, "Server", "AirTunes/"GLOBAL_VERSION);
 
+    char gmt[64];
+    time_t seconds = time(NULL);
+    strftime(gmt, sizeof(gmt), "%c GMT", gmtime(&seconds));
+    http_response_add_header(*response, "Date", gmt);
+
+    char session_id[24];
+    snprintf(session_id, sizeof(session_id), "%lu", pointer_to_session_id((void *) conn->session));
+    http_response_add_header(*response, "Session", session_id);
+      
     logger_log(conn->raop->logger, LOGGER_DEBUG, "Handling request %s with URL %s", method, url);
     raop_handler_t handler = NULL;
     if (!strcmp(method, "GET") && !strcmp(url, "/info")) {
@@ -251,6 +282,34 @@ conn_request(void *ptr, http_request_t *request, http_response_t **response) {
         handler = &raop_handler_flush;
     } else if (!strcmp(method, "TEARDOWN")) {
         handler = &raop_handler_teardown;
+    } else if (!strcmp(method, "POST") && !strcmp(url, "/audioMode")) {
+        handler = &raop_handler_audiomode;
+    } else if (!strcmp(method, "GET")) {
+        if (!strcmp(url, "/server-info")) {
+            handler = &http_handler_server_info;
+        } else if (!strcmp(url, "/playback-info")) {
+            handler = &http_handler_playback_info;
+        }
+    } else if (!strcmp(method, "PUT")) {
+        handler = &http_handler_set_property;
+    } else if (!strcmp(method, "POST")) {
+        if (!strcmp(url, "/getProperty")) {
+            handler = &http_handler_get_property;
+        } else if (!strcmp(url, "/reverse")) {
+            handler = &http_handler_reverse;
+        } else if (!strcmp(url, "/play")) {
+            handler = &http_handler_play;
+        } else if (!strcmp(url, "/scrub")) {
+            handler = &http_handler_scrub;
+        } else if (!strcmp(url, "/rate")) {
+            handler = &http_handler_rate;
+        } else if (!strcmp(url, "/stop")) {
+            handler = &http_handler_stop;
+        } else if (!strcmp(url, "/action")) {
+            handler = &http_handler_action;
+        } else if (!strcmp(url, "/fp-setup2")) {
+            handler = &http_handler_fpsetup2;
+        }
     } else {
         logger_log(conn->raop->logger, LOGGER_INFO, "Unhandled Client Request: %s %s", method, url);
     }
@@ -270,7 +329,7 @@ conn_request(void *ptr, http_request_t *request, http_response_t **response) {
     header_str =  utils_data_to_text(data, len);
     logger_log(conn->raop->logger, LOGGER_DEBUG, "\n%s", header_str);
     bool data_is_plist = (strstr(header_str,"apple-binary-plist") != NULL);
-    bool data_is_text = (strstr(header_str,"text/parameters") != NULL);
+    bool data_is_text = (strstr(header_str,"text/") != NULL);
     free(header_str);
     if (response_data) {
         if (response_datalen > 0 && logger_debug) {
