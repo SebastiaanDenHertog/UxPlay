@@ -29,6 +29,7 @@ struct http_request_s {
 
     const char *method;
     char *url;
+    char *protocol;
 
     char **headers;
     int headers_size;
@@ -51,6 +52,19 @@ on_url(llhttp_t *parser, const char *at, size_t length)
 
     request->url[urllen] = '\0';
     strncat(request->url, at, length);
+
+    if (request->protocol) {
+        free(request->protocol);
+    }
+
+    const char *proto_start = at + length + 1;
+    const char *proto_end = strstr(proto_start, "\r");
+    size_t protolen = (proto_end ? proto_end - proto_start : 0);
+
+    request->protocol = malloc(protolen + 1);
+    request->protocol[protolen] = '\0';
+    strncpy(request->protocol, proto_start, protolen);
+
     return 0;
 }
 
@@ -167,6 +181,7 @@ http_request_destroy(http_request_t *request)
 
     if (request) {
         free(request->url);
+	free(request->protocol);
         for (i=0; i<request->headers_size; i++) {
             free(request->headers[i]);
         }
@@ -230,6 +245,13 @@ http_request_get_url(http_request_t *request)
 {
     assert(request);
     return request->url;
+}
+
+const char *
+http_request_get_protocol(http_request_t *request)
+{
+    assert(request);
+    return request->protocol;
 }
 
 const char *
