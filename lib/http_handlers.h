@@ -1,20 +1,20 @@
-static void
-get_protocol(const char * url, char * protocol, int len) {
-  if (!strcmp(url, "/server-info") ||
-      !strcmp(url, "/playback-info") ||
-      !strcmp(url, "/setProperty") ||
-      !strcmp(url, "/getProperty") ||
-      !strcmp(url, "/reverse") ||
-      !strcmp(url, "/play") ||
-      !strcmp(url, "/scrub") ||
-      !strcmp(url, "/rate") ||
-      !strcmp(url, "/stop") || 
-      !strcmp(url, "/action") ||
-      !strcmp(url, "/fp-setup2")) {
-    snprintf(protocol, len, "HTTP/1.1");
-  } else {
-    snprintf(protocol, len, "RTSP/1.0");
-  }
+static bool
+check_protocol(const char * url, const char * protocol) {
+    if (!strcmp(url, "/server-info") ||
+        !strcmp(url, "/playback-info") ||
+        !strcmp(url, "/setProperty") ||
+        !strcmp(url, "/getProperty") ||
+        !strcmp(url, "/reverse") ||
+        !strcmp(url, "/play") ||
+        !strcmp(url, "/scrub") ||
+        !strcmp(url, "/rate") ||
+        !strcmp(url, "/stop") || 
+        !strcmp(url, "/action") ||
+        !strcmp(url, "/fp-setup2")) {
+        return (!strncmp(protocol, "HTTP", 4));
+    } else {
+        return (!strncmp(protocol, "RTSP", 4));
+    }
 }
 
 static void

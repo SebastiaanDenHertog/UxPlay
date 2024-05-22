@@ -163,9 +163,9 @@ conn_request(void *ptr, http_request_t *request, http_response_t **response) {
     raop_conn_t *conn = ptr;
     const char *method;
     const char *url;
+    const char *protocol;
     const char *cseq;
-    char protocol[12] = "RTSP/1.0";
-    
+
     char *response_data = NULL;
     int response_datalen = 0;
     logger_log(conn->raop->logger, LOGGER_DEBUG, "conn_request");
@@ -173,10 +173,17 @@ conn_request(void *ptr, http_request_t *request, http_response_t **response) {
 
     method = http_request_get_method(request);
     url = http_request_get_url(request);
+    protocol = http_request_get_protocol(request);
     cseq = http_request_get_header(request, "CSeq");
-    if (!cseq ) {
-        get_protocol(url, protocol, sizeof(protocol));
-        logger_log(conn->raop->logger, LOGGER_INFO, "**** request without CSeq: %s %s %s", method,  url,  protocol);	
+
+    bool correct_protocol;
+    if (cseq) {
+        correct_protocol = !strncmp(protocol, "RTSP", 4);
+    } else {
+        correct_protocol = check_protocol(url, protocol);
+    }
+    if (!correct_protocol) {
+        logger_log(conn->raop->logger, LOGGER_WARNING, "unexpected protocol %s: url = %s", protocol, url);
     }
     
     if (!conn->have_active_remote) {
@@ -229,7 +236,7 @@ conn_request(void *ptr, http_request_t *request, http_response_t **response) {
 
 
     if (!strcmp(url, "/reverse")) {
-        *response = http_response_init("HTTP/1.1", 101, "Switching Protocols");
+        *response = http_response_init(protocol, 101, "Switching Protocols");
     } else {
         *response = http_response_init(protocol, 200, "OK");
     }
