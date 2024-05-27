@@ -73,6 +73,8 @@ struct raop_s {
   
      /* public key as string */
      char pk_str[2*ED25519_KEY_SIZE + 1];
+
+     unsigned char next_session;
 };
 
 struct raop_conn_s {
@@ -129,7 +131,9 @@ conn_init(void *opaque, unsigned char *local, int locallen, unsigned char *remot
         return NULL;
     }
 
-
+    raop->next_session++;
+    set_pairing_session_num (conn->session, raop->next_session);
+ 
     utils_ipaddress_to_string(locallen, local, zone_id, ip_address, (int) sizeof(ip_address));
     logger_log(conn->raop->logger, LOGGER_INFO, "Local : %s", ip_address);
 
@@ -154,7 +158,7 @@ conn_init(void *opaque, unsigned char *local, int locallen, unsigned char *remot
     if (raop->callbacks.conn_init) {
         raop->callbacks.conn_init(raop->callbacks.cls);
     }
-
+    printf("initialize new connection, session num = %u\n",get_pairing_session_num(conn->session));
     return conn;
 }
 
@@ -168,18 +172,32 @@ conn_request(void *ptr, http_request_t *request, http_response_t **response) {
 
     char *response_data = NULL;
     int response_datalen = 0;
-    logger_log(conn->raop->logger, LOGGER_DEBUG, "conn_request");
+
+    cseq = http_request_get_header(request, "CSeq");
+    session_type_t session_type = get_pairing_session_type(conn->session);
+    if (session_type == SESSION_TYPE_UNKNOWN) {
+        if (cseq) {
+            set_pairing_session_type(conn->session, SESSION_TYPE_RAOP);
+        } else {
+            set_pairing_session_type(conn->session, SESSION_TYPE_CASTING);
+        }
+        session_type = get_pairing_session_type(conn->session);
+    }
+
+    logger_log(conn->raop->logger, LOGGER_DEBUG, "conn_request, session_num %u type %d", get_pairing_session_num(conn->session), session_type);
     bool logger_debug = (logger_get_level(conn->raop->logger) >= LOGGER_DEBUG);
 
     method = http_request_get_method(request);
     url = http_request_get_url(request);
     protocol = http_request_get_protocol(request);
-    cseq = http_request_get_header(request, "CSeq");
+
 
     bool correct_protocol;
     if (cseq) {
+        assert(session_type == SESSION_TYPE_RAOP);
         correct_protocol = !strncmp(protocol, "RTSP", 4);
     } else {
+        assert(session_type == SESSION_TYPE_CASTING);
         correct_protocol = check_protocol(url, protocol);
     }
     if (!correct_protocol) {
@@ -451,6 +469,7 @@ raop_init(raop_callbacks_t *callbacks) {
     raop->max_ntp_timeouts = 0;
     raop->audio_delay_micros = 250000;
 
+    raop->next_session = 0;
     return raop;
 }
 
