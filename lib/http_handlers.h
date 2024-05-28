@@ -1,19 +1,25 @@
+#include "casting.h"
+
+
 static bool
-check_protocol(const char * url, const char * protocol) {
-    if (!strcmp(url, "/server-info") ||
-        !strcmp(url, "/playback-info") ||
-        !strcmp(url, "/setProperty") ||
-        !strcmp(url, "/getProperty") ||
-        !strcmp(url, "/reverse") ||
-        !strcmp(url, "/play") ||
-        !strcmp(url, "/scrub") ||
-        !strcmp(url, "/rate") ||
-        !strcmp(url, "/stop") || 
-        !strcmp(url, "/action") ||
-        !strcmp(url, "/fp-setup2")) {
-        return (!strncmp(protocol, "HTTP", 4));
-    } else {
+check_protocol(const char *method, const char * url, const char * protocol) {
+    if (!strcmp(url, "/pair-pin-start") ||
+        !strcmp(url, "/pair-setup-pin") ||
+        !strcmp(url, "/pair-setup") ||
+        !strcmp(url, "/pair-verify") ||
+        !strcmp(url, "/fp-setup") ||
+        !strcmp(url, "/feedback") ||
+        !strcmp(url, "/audioMode") ||
+        !strcmp(method, "OPTIONS") ||
+	!strcmp(method, "FLUSH") ||
+	!strcmp(method, "TEARDOWN") ||
+	!strcmp(method, "GET_PARAMETER") ||
+        !strcmp(method, "SET_PARAMETER") || 
+        !strcmp(method, "SETUP") ||
+        !strcmp(method, "RECORD")) {
         return (!strncmp(protocol, "RTSP", 4));
+    } else {
+        return (!strncmp(protocol, "HTTP", 4));
     }
 }
 
@@ -85,13 +91,15 @@ static void
 http_handler_reverse(raop_conn_t *conn,
                         http_request_t *request, http_response_t *response,
                         char **response_data, int *response_datalen) {
-    const char *upgrade;
 
-    conn->cast_session = http_request_get_header(request, "X-Apple-Session-ID");
-    upgrade = http_request_get_header(request, "Upgrade");
-    logger_log(conn->raop->logger, LOGGER_INFO, "client requested reverse connection: %s  \"%s\"", conn->cast_session, upgrade);
+  //conn->cast_session = http_request_get_header(request, "X-Apple-Session-ID");
+    const char *connection = http_request_get_header(request, "Connection");
+    const char *upgrade = http_request_get_header(request, "Upgrade");
+    logger_log(conn->raop->logger, LOGGER_INFO, "client requested reverse connection: %s  \"%s\"", connection, upgrade);
+    http_response_add_header(response, "Connection", connection);
     http_response_add_header(response, "Upgrade", upgrade);
-    http_response_add_header(response, "Content-Length","0");
+    *response_data = NULL;
+    response_datalen = 0;
 }
 
 static void
@@ -242,50 +250,111 @@ http_handler_play(raop_conn_t *conn,
                       http_request_t *request, http_response_t *response,
                       char **response_data, int *response_datalen)
 {
-    logger_log(conn->raop->logger, LOGGER_ERR, "client HTTP request POST play is unhandled");
-    assert(0);
-#if 0
-
+  //    logger_log(conn->raop->logger, LOGGER_ERR, "client HTTP request POST play is unhandled");
+  //  assert(0);
+  //#if 0
+    size_t len;
+    const char* Apple_session_ID = NULL;
+    char* playback_uuid = NULL;
+    char* playback_location = NULL;
+    double start_pos_secs = 0.0;
+    bool data_is_plist = false;
+	
     logger_log(conn->raop->logger, LOGGER_DEBUG, "http_handler_play");
-
-    const char *data;
-    int data_len;
-    data = http_request_get_data(request, &data_len);
-    char* playback_location;
-    char* playback_uuid;
-
-    // Parsing bplist
-    plist_t req_root_node = NULL;
-    plist_from_bin(data, data_len, &req_root_node);
-
-    if (PLIST_IS_DICT(req_root_node)) {
-        plist_t puuid = plist_dict_get_item(req_root_node, "uuid");
-        plist_get_string_val(puuid, &playback_uuid);
-        conn->castdata->playback_uuid = malloc(strlen(playback_uuid) + 1);
-        strcpy(conn->castdata->playback_uuid, playback_uuid);
-
-        plist_t plocation = plist_dict_get_item(req_root_node, "Content-Location");
-        plist_get_string_val(plocation, &playback_location);
-        conn->castdata->playback_location = malloc(strlen(playback_location) + 1);
-        strcpy(conn->castdata->playback_location, playback_location);
-
-        const char* sessionid = http_request_get_header(request, "X-Apple-Session-ID");
-        conn->castdata->cast_session = strdup(sessionid);
-        conn->castdata->castsessionlen = strlen(conn->castdata->cast_session);
-
-        if (!isHLSUrl(conn->castdata->playback_location)) {
-            logger_log(conn->raop->logger, LOGGER_DEBUG, "Dont need HLS for this, for the future add a link to Gstreamer to download file and play");
-        } else {
-            logger_log(conn->raop->logger, LOGGER_DEBUG, "Needs HLS Ugh");
-            conn->castdata->requestid = 0;
-            startHLSRequests(conn->castdata);
-        }
-    } else {
-        logger_log(conn->raop->logger, LOGGER_ERR, "Couldn't find Plist Data for /play, Unhandled");
+    assert(conn->casting_data);
+    
+    Apple_session_ID = http_request_get_header(request, "X-Apple-Session-ID");
+    if (!Apple_session_ID) {
+        logger_log(conn->raop->logger, LOGGER_ERR, "Play request had no X-Apple-Session-ID");
+        goto play_error;
     }
-#endif
-}
 
+    int request_datalen;    
+    const char *request_data = http_request_get_data(request, &request_datalen);
+
+    if (request_datalen > 0) {
+        char *header_str = NULL;
+        http_request_get_header_string(request, &header_str);
+        logger_log(conn->raop->logger, LOGGER_INFO, "request header %s", header_str);
+	data_is_plist = (strstr(header_str, "apple-binary-plist") != NULL);
+    }
+    if (data_is_plist) {
+        plist_t req_root_node = NULL;
+        plist_from_bin(request_data, request_datalen, &req_root_node);
+        if (PLIST_IS_DICT(req_root_node)) {
+            plist_t req_uuid_node = plist_dict_get_item(req_root_node, "uuid");
+            if (!req_uuid_node) {
+	      goto play_error;
+            } else {
+                plist_get_string_val(req_uuid_node, &playback_uuid);
+            }
+    
+            plist_t req_content_location_node = plist_dict_get_item(req_root_node, "Content-Location");
+            if (!req_content_location_node) {
+	      goto play_error;
+            } else {
+                plist_get_string_val(req_content_location_node, &playback_location);
+	    }
+
+            plist_t req_start_position_seconds_node = plist_dict_get_item(req_root_node, "Start-Position-Seconds");
+            if (!req_start_position_seconds_node) {
+                logger_log(conn->raop->logger, LOGGER_INFO, "No Start-Position-Seconds in Play request");
+            } else {
+                plist_get_real_val(req_content_location_node, &start_pos_secs);
+            }
+        } else {
+            logger_log(conn->raop->logger, LOGGER_ERR, "binary plist was not a DICT");
+            goto play_error;
+	}
+    } else {
+      logger_log(conn->raop->logger, LOGGER_ERR, "play data was not a binary plist");
+      goto play_error;
+    }
+
+
+    conn->casting_data->start_pos_ms = (float) 1000 * start_pos_secs;
+
+    len = strlen(Apple_session_ID);
+    conn->casting_data->casting_session_id = (char *) malloc(len+1);
+    strncpy(conn->casting_data->casting_session_id, Apple_session_ID, len + 1);
+		
+    len = strlen(playback_uuid);
+    conn->casting_data->playback_uuid = (char *) malloc(len + 1);
+    strncpy(conn->casting_data->playback_uuid, playback_uuid, len + 1);
+
+    len = strlen(playback_location);
+    conn->casting_data->playback_location = (char *) malloc(len + 1);
+    strncpy(conn->casting_data->playback_location, playback_location, len + 1);
+
+    logger_log(conn->raop->logger, LOGGER_INFO, "Casting Data:\nApple_sessionID %s\nuuid %s\nContent Location %s\nStart Position (msec) %f",
+	       conn->casting_data->casting_session_id,
+	       conn->casting_data->playback_uuid,
+	       conn->casting_data->playback_location,
+	       conn->casting_data->start_pos_ms);
+
+
+    
+    if (!isHLSUrl(conn->casting_data->playback_location)) {
+        logger_log(conn->raop->logger, LOGGER_DEBUG, "Dont need HLS for this, for the future add a link to Gstreamer to download file and play");
+    } else {
+        logger_log(conn->raop->logger, LOGGER_DEBUG, "Needs HLS Ugh");
+        conn->casting_data->requestid = 0;
+        startHLSRequests(conn->raop->port, Apple_sessionID, playback_url, playback_location, start_pos_ms, );
+    }
+    
+    response_data = NULL;
+    response_datalen = 0;
+    return;
+ play_error:;
+    logger_log(conn->raop->logger, LOGGER_ERR, "Couldn't find Plist Data for /play, Unhandled");
+    http_response_destroy(response);
+    response = http_response_init("RTSP/1.0", 400, "Bad Request");
+    http_response_add_header(response, "Server", "AirTunes/"GLOBAL_VERSION);
+    *response_data = NULL;
+    response_datalen = 0;
+    return;
+}
+    
 static void
 raop_handler_audiomode(raop_conn_t *conn,
                        http_request_t *request, http_response_t *response,

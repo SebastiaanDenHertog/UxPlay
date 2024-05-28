@@ -77,6 +77,17 @@ struct raop_s {
      unsigned char next_session;
 };
 
+struct casting_data_s {
+    unsigned short port;
+    int casting_request_id;
+    char *casting_session_id;
+    char *playback_uuid;
+    char *playback_location;
+    float start_pos_ms;
+};
+typedef struct casting_data_s casting_data_t;
+
+
 struct raop_conn_s {
     raop_t *raop;
     raop_ntp_t *raop_ntp;
@@ -91,17 +102,44 @@ struct raop_conn_s {
     unsigned char *remote;
     int remotelen;
 
-    const char *cast_session;
-    int cast_sessionlen;
-
     unsigned int zone_id;
 
+    casting_data_t *casting_data;
+
     bool have_active_remote;
+
+
 };
 typedef struct raop_conn_s raop_conn_t;
 
+
 #include "raop_handlers.h"
 #include "http_handlers.h"
+
+static void 
+casting_data_destroy(casting_data_t *casting_data) {
+    if (casting_data->casting_session_id) {
+        free(casting_data->casting_session_id);
+    }
+    if (casting_data->playback_uuid) {
+        free(casting_data->playback_uuid);
+    }
+    if (casting_data->playback_location) {
+        free(casting_data->playback_location);
+    }
+}
+
+static casting_data_t *
+casting_data_init(unsigned short port) {
+    casting_data_t *casting_data = (casting_data_t *) calloc(1, sizeof(casting_data_t));
+    casting_data->port = port;
+    casting_data->casting_request_id = 0;
+    casting_data->casting_session_id = NULL;
+    casting_data->playback_uuid = NULL;
+    casting_data->playback_location = NULL;
+    casting_data->start_pos_ms = 0.0f;
+    return casting_data;
+}
 
 static void *
 conn_init(void *opaque, unsigned char *local, int locallen, unsigned char *remote, int remotelen, unsigned int zone_id) {
@@ -119,6 +157,7 @@ conn_init(void *opaque, unsigned char *local, int locallen, unsigned char *remot
     conn->raop_rtp_mirror = NULL;
     conn->raop_ntp = NULL;
     conn->fairplay = fairplay_init(raop->logger);
+    conn->casting_data = NULL;
 
     if (!conn->fairplay) {
         free(conn);
@@ -162,6 +201,7 @@ conn_init(void *opaque, unsigned char *local, int locallen, unsigned char *remot
     return conn;
 }
 
+
 static void
 conn_request(void *ptr, http_request_t *request, http_response_t **response) {
     raop_conn_t *conn = ptr;
@@ -180,6 +220,7 @@ conn_request(void *ptr, http_request_t *request, http_response_t **response) {
             set_pairing_session_type(conn->session, SESSION_TYPE_RAOP);
         } else {
             set_pairing_session_type(conn->session, SESSION_TYPE_CASTING);
+	    conn->casting_data = casting_data_init(conn->raop->port);
         }
         session_type = get_pairing_session_type(conn->session);
     }
@@ -198,7 +239,7 @@ conn_request(void *ptr, http_request_t *request, http_response_t **response) {
         correct_protocol = !strncmp(protocol, "RTSP", 4);
     } else {
         assert(session_type == SESSION_TYPE_CASTING);
-        correct_protocol = check_protocol(url, protocol);
+        correct_protocol = check_protocol(method, url, protocol);
     }
     if (!correct_protocol) {
         logger_log(conn->raop->logger, LOGGER_WARNING, "unexpected protocol %s: url = %s", protocol, url);
@@ -409,6 +450,11 @@ conn_destroy(void *ptr) {
         conn->raop->callbacks.video_flush(conn->raop->callbacks.cls);
     }
 
+    if (conn->casting_data) {
+        casting_data_destroy(conn->casting_data);
+        free(conn->casting_data);
+    }
+  
     free(conn->local);
     free(conn->remote);
     pairing_session_destroy(conn->session);
