@@ -52,7 +52,7 @@ class AirPlayServer
 public:
     AirPlayServer(int port, const char *name);
     void initialize(int argc, char *argv[]);
-    void run(int argc, char *argv[]);
+    void run();
     void stop();
     void reset();
     void restart();
