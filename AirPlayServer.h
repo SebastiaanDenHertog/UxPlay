@@ -164,7 +164,7 @@ private:
     unsigned short display[5];
     bool debug_log;
     bool bt709_fix;
-    int max_connections;
+    int nohold;
     unsigned short raop_port;
     unsigned short airplay_port;
     uint64_t remote_clock_offset;

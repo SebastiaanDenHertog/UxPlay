@@ -23,7 +23,7 @@ videoflip_t videoflip[2] = {NONE, NONE};
 static unsigned char mark[] = {0x00, 0x00, 0x00, 0x01};
 static std::string coverart_filename = "";
 static unsigned short display[5] = {0}, tcp[3] = {0}, udp[3] = {0};
-static int max_connections = 2;
+static int nohold = 0;
 static unsigned short raop_port;
 static unsigned short airplay_port;
 static std::vector<std::string> allowed_clients;
@@ -87,7 +87,7 @@ AirPlayServer::AirPlayServer() : server_name(DEFAULT_NAME),
                                  use_random_hw_addr(false),
                                  debug_log(DEFAULT_DEBUG_LOG),
                                  bt709_fix(false),
-                                 max_connections(2),
+                                 nohold(0),
                                  remote_clock_offset(0),
                                  restrict_clients(false),
                                  setup_legacy_pairing(false),
