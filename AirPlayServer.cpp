@@ -47,56 +47,57 @@ std::string config_file = "";
 #define LOCAL 1
 #define OCTETS 6
 
-AirPlayServer::AirPlayServer() : server_name(DEFAULT_NAME),
-                                 audio_sync(false),
-                                 video_sync(true),
-                                 audio_delay_alac(0),
-                                 audio_delay_aac(0),
-                                 relaunch_video(false),
-                                 reset_loop(false),
-                                 open_connections(0),
-                                 videosink("autovideosink"),
-                                 use_video(true),
-                                 compression_type(0),
-                                 audiosink("autoaudiosink"),
-                                 audiodelay(-1),
-                                 use_audio(true),
-                                 new_window_closing_behavior(true),
-                                 close_window(false),
-                                 video_parser("h264parse"),
-                                 video_decoder("decodebin"),
-                                 video_converter("videoconvert"),
-                                 show_client_FPS_data(false),
-                                 max_ntp_timeouts(NTP_TIMEOUT_LIMIT),
-                                 video_dumpfile(nullptr),
-                                 video_dumpfile_name("videodump"),
-                                 video_dump_limit(0),
-                                 video_dumpfile_count(0),
-                                 video_dump_count(0),
-                                 dump_video(false),
-                                 audio_dumpfile(nullptr),
-                                 audio_dumpfile_name("audiodump"),
-                                 audio_dump_limit(0),
-                                 audio_dumpfile_count(0),
-                                 audio_dump_count(0),
-                                 dump_audio(false),
-                                 audio_type(0x00),
-                                 previous_audio_type(0x00),
-                                 fullscreen(false),
-                                 do_append_hostname(true),
-                                 use_random_hw_addr(false),
-                                 debug_log(DEFAULT_DEBUG_LOG),
-                                 bt709_fix(false),
-                                 nohold(0),
-                                 remote_clock_offset(0),
-                                 restrict_clients(false),
-                                 setup_legacy_pairing(false),
-                                 require_password(false),
-                                 pin(0),
-                                 registration_list(false),
-                                 db_low(-30.0),
-                                 db_high(0.0),
-                                 taper_volume(false)
+AirPlayServer::AirPlayServer(int port, const char *Name) : server_name(Name),
+                                                           audio_sync(false),
+                                                           video_sync(true),
+                                                           audio_delay_alac(0),
+                                                           audio_delay_aac(0),
+                                                           relaunch_video(false),
+                                                           reset_loop(false),
+                                                           open_connections(0),
+                                                           videosink("autovideosink"),
+                                                           use_video(true),
+                                                           compression_type(0),
+                                                           audiosink("autoaudiosink"),
+                                                           audiodelay(-1),
+                                                           use_audio(true),
+                                                           new_window_closing_behavior(true),
+                                                           close_window(false),
+                                                           video_parser("h264parse"),
+                                                           video_decoder("decodebin"),
+                                                           video_converter("videoconvert"),
+                                                           show_client_FPS_data(false),
+                                                           max_ntp_timeouts(NTP_TIMEOUT_LIMIT),
+                                                           video_dumpfile(nullptr),
+                                                           video_dumpfile_name("videodump"),
+                                                           video_dump_limit(0),
+                                                           video_dumpfile_count(0),
+                                                           video_dump_count(0),
+                                                           dump_video(false),
+                                                           audio_dumpfile(nullptr),
+                                                           audio_dumpfile_name("audiodump"),
+                                                           audio_dump_limit(0),
+                                                           audio_dumpfile_count(0),
+                                                           audio_dump_count(0),
+                                                           dump_audio(false),
+                                                           audio_type(0x00),
+                                                           previous_audio_type(0x00),
+                                                           fullscreen(false),
+                                                           do_append_hostname(true),
+                                                           use_random_hw_addr(false),
+                                                           debug_log(DEFAULT_DEBUG_LOG),
+                                                           bt709_fix(false),
+                                                           max_connections(2),
+                                                           remote_clock_offset(0),
+                                                           restrict_clients(false),
+                                                           setup_legacy_pairing(false),
+                                                           require_password(false),
+                                                           pin(0),
+                                                           registration_list(false),
+                                                           db_low(-30.0),
+                                                           db_high(0.0),
+                                                           taper_volume(false),
+                                 raop_port(port)
 {
     std::fill(std::begin(display), std::end(display), 0);
     std::fill(std::begin(tcp), std::end(tcp), 0);
@@ -697,28 +698,6 @@ char *AirPlayServer::create_pin_display(char *pin_str, int margin, int gap)
     return pin_image;
 }
 
-gboolean AirPlayServer::reset_callback(gpointer loop)
-{
-    if (reset_loop)
-    {
-        g_main_loop_quit((GMainLoop *)loop);
-    }
-    return TRUE;
-}
-
-gboolean AirPlayServer::sigint_callback(gpointer loop)
-{
-    relaunch_video = false;
-    g_main_loop_quit((GMainLoop *)loop);
-    return TRUE;
-}
-
-gboolean AirPlayServer::sigterm_callback(gpointer loop)
-{
-    relaunch_video = false;
-    g_main_loop_quit((GMainLoop *)loop);
-    return TRUE;
-}
 
 #ifdef _WIN32
 struct signal_handler
@@ -2182,15 +2161,6 @@ void AirPlayServer::audio_set_coverart(void *cls, const void *buffer, int buflen
     }
 }
 
-void AirPlayServer::audio_set_progress(void *cls, unsigned int start, unsigned int curr, unsigned int end)
-{
-    int duration = (int)(end - start) / 44100;
-    int position = (int)(curr - start) / 44100;
-    int remain = duration - position;
-    printf("audio progress (min:sec): %d:%2.2d; remaining: %d:%2.2d; track length %d:%2.2d\n",
-           position / 60, position % 60, remain / 60, remain % 60, duration / 60, duration % 60);
-}
-
 extern "C" void AirPlayServer::audio_set_progress(void *cls, unsigned int start, unsigned int curr, unsigned int end)
 {
     int duration = (int)(end - start) / 44100;
@@ -2200,6 +2170,22 @@ extern "C" void AirPlayServer::audio_set_progress(void *cls, unsigned int start,
            position / 60, position % 60, remain / 60, remain % 60, duration / 60, duration % 60);
 }
 
+extern "C" void AirPlayServer::display_pin(void *cls, char *pin)
+{
+    AirPlayServer *server = static_cast<AirPlayServer *>(cls);
+    int margin = 10;
+    int spacing = 3;
+    char *image = server->create_pin_display(pin, margin, spacing);
+    if (!image)
+    {
+        LOGE("create_pin_display could not create pin image, pin = %s", pin);
+    }
+    else
+    {
+        LOGI("%s\n", image);
+        free(image);
+    }
+}
 void AirPlayServer::audio_set_metadata(void *cls, const void *buffer, int buflen)
 {
     AirPlayServer *server = static_cast<AirPlayServer *>(cls);
@@ -2575,7 +2561,7 @@ void AirPlayServer::initialize(int argc, char *argv[])
     log_level = debug_log ? LOGGER_DEBUG : LOGGER_INFO;
 }
 
-void AirPlayServer::start(int argc, char *argv[])
+void AirPlayServer::run(int argc, char *argv[])
 {
     raop_callbacks_t raop_cbs;
     memset(&raop_cbs, 0, sizeof(raop_cbs));
