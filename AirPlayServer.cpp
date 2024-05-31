@@ -2561,7 +2561,7 @@ void AirPlayServer::initialize(int argc, char *argv[])
     log_level = debug_log ? LOGGER_DEBUG : LOGGER_INFO;
 }
 
-void AirPlayServer::run()
+void AirPlayServer::run(int argc, char *argv[])
 {
     raop_callbacks_t raop_cbs;
     memset(&raop_cbs, 0, sizeof(raop_cbs));
