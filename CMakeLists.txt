@@ -55,13 +55,14 @@ if  ( GST_124 )
      message ( STATUS "define GST_124" )
 endif()
 
-#add_executable( uxplay main.cpp ${SOURCEScpp} ${SOURCESh})
-
-add_executable( uxplay uxplay.cpp)
-target_link_libraries( uxplay
+add_executable( main main.cpp ${SOURCEScpp} ${SOURCESh})
+target_link_libraries( main
                    renderers
                    airplay
 		   )
+
+#add_executable( uxplay uxplay.cpp)
+#target_link_libraries( uxplay renderers airplay)
 
 # Commented out the install commands to make the project executable without installation
 # install( TARGETS  uxplay RUNTIME DESTINATION bin )
