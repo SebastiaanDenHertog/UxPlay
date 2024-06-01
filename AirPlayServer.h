@@ -52,7 +52,7 @@ class AirPlayServer
 public:
     AirPlayServer(int port, const char *name);
     void initialize(int argc, char *argv[]);
-    void run();
+    void run(int argc, char *argv[]);
     void stop();
     void reset();
     void restart();
@@ -61,7 +61,6 @@ public:
 private:
     bool file_has_write_access(const char *filename);
     char *create_pin_display(char *pin_str, int margin, int gap);
-
     void parse_arguments(int argc, char *argv[]);
     void dump_audio_to_file(unsigned char *data, int datalen, unsigned char type);
     void dump_video_to_file(unsigned char *data, int datalen);
@@ -82,7 +81,6 @@ private:
     bool get_videorotate(const char *str, videoflip_t *videoflip);
     void append_hostname(std::string &server_name);
     void process_metadata(int count, const char *dmap_tag, const unsigned char *metadata, int datalen);
-    int parse_dmap_header(const unsigned char *metadata, char *tag, int *len);
     int register_dnssd();
     void unregister_dnssd();
     void stop_dnssd();
@@ -180,16 +178,6 @@ private:
     bool taper_volume;
     unsigned short tcp[3];
     unsigned short udp[3];
-
-    // Define constants
-    static constexpr const char *DEFAULT_NAME = "UxPlay";
-    static constexpr bool DEFAULT_DEBUG_LOG = true;
-    static constexpr unsigned int NTP_TIMEOUT_LIMIT = 5;
-    static constexpr int SECOND_IN_USECS = 1000000;
-    static constexpr int SECOND_IN_NSECS = 1000000000UL;
-    static constexpr int LOWEST_ALLOWED_PORT = 1024;
-    static constexpr int HIGHEST_PORT = 65535;
-    static constexpr const char *BT709_FIX = "capssetter caps=\"video/x-h264, colorimetry=bt709\"";
 };
 
 #endif // AIRPLAYSERVER_H
