@@ -18,7 +18,7 @@ endif()
 
 if ( ( UNIX AND NOT APPLE ) OR USE_X11 )
   if ( NOT NO_X11_DEPS )
-  find_package( X11  )
+    find_package( X11  )
     if ( X11_FOUND )
       message (STATUS "Will compile using X11 Libraries  (use cmake option -DNO_X11_DEPS=ON if X11 dependence is not wanted)" )
       link_libraries( ${X11_LIBRARIES} )
@@ -42,6 +42,9 @@ add_subdirectory( lib/playfair )
 add_subdirectory( lib )
 add_subdirectory( renderers )
 
+file(GLOB SOURCEScpp "AirPlayServer.cpp")
+file(GLOB SOURCESh "AirPlayServer.h")
+
 if  ( GST_MACOS )
      add_definitions( -DGST_MACOS )
      message ( STATUS "define GST_MACOS" )
@@ -52,17 +55,17 @@ if  ( GST_124 )
      message ( STATUS "define GST_124" )
 endif()
 
-
-add_executable( uxplay uxplay.cpp )
+add_executable( uxplay main.cpp ${SOURCEScpp} ${SOURCESh})
 target_link_libraries( uxplay
                    renderers
                    airplay
 		   )
 
-install( TARGETS  uxplay RUNTIME DESTINATION bin )
-install( FILES uxplay.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1 )
-install( FILES README.md README.txt README.html LICENSE DESTINATION ${CMAKE_INSTALL_DOCDIR} ) 
-install( FILES lib/llhttp/LICENSE-MIT DESTINATION ${CMAKE_INSTALL_DOCDIR}/llhttp ) 
+# Commented out the install commands to make the project executable without installation
+# install( TARGETS  uxplay RUNTIME DESTINATION bin )
+# install( FILES uxplay.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1 )
+# install( FILES README.md README.txt README.html LICENSE DESTINATION ${CMAKE_INSTALL_DOCDIR} ) 
+# install( FILES lib/llhttp/LICENSE-MIT DESTINATION ${CMAKE_INSTALL_DOCDIR}/llhttp ) 
 
 # uninstall target
 if(NOT TARGET uninstall)

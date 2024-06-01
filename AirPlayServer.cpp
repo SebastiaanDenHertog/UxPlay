@@ -47,6 +47,15 @@ std::string config_file = "";
 #define LOCAL 1
 #define OCTETS 6
 
+
+static constexpr bool DEFAULT_DEBUG_LOG = true;
+static constexpr unsigned int NTP_TIMEOUT_LIMIT = 5;
+static constexpr int SECOND_IN_USECS = 1000000;
+static constexpr int SECOND_IN_NSECS = 1000000000UL;
+static constexpr int LOWEST_ALLOWED_PORT = 1024;
+static constexpr int HIGHEST_PORT = 65535;
+static constexpr const char *BT709_FIX = "capssetter caps=\"video/x-h264, colorimetry=bt709\"";
+
 AirPlayServer::AirPlayServer(int port, const char *Name) : server_name(Name),
                                                            audio_sync(false),
                                                            video_sync(true),
@@ -165,35 +174,6 @@ size_t write_coverart(const char *filename, const void *image, size_t len)
     size_t count = fwrite(image, 1, len, fp);
     fclose(fp);
     return count;
-}
-
-std::string AirPlayServer::find_uxplay_config_file()
-{
-    std::string no_config_file = "";
-    const char *homedir = NULL;
-    const char *uxplayrc = NULL;
-    std::string config0, config1, config2;
-    struct stat sb;
-    uxplayrc = getenv("UXPLAYRC"); /* first look for $UXPLAYRC */
-    if (uxplayrc)
-    {
-        config0 = uxplayrc;
-        if (stat(config0.c_str(), &sb) == 0)
-            return config0;
-    }
-    homedir = get_homedir();
-    if (homedir)
-    {
-        config1 = homedir;
-        config1.append("/.uxplayrc");
-        if (stat(config1.c_str(), &sb) == 0)
-            return config1; /* look for ~/.uxplayrc */
-        config2 = homedir;
-        config2.append("/.config/uxplayrc"); /* look for ~/.config/uxplayrc */
-        if (stat(config2.c_str(), &sb) == 0)
-            return config2;
-    }
-    return no_config_file;
 }
 
 std::string AirPlayServer::find_mac()
@@ -776,56 +756,6 @@ std::string AirPlayServer::find_uxplay_config_file()
             return config2;
     }
     return no_config_file;
-}
-
-#define MULTICAST 0
-#define LOCAL 1
-#define OCTETS 6
-
-bool AirPlayServer::validate_mac(char *mac_address)
-{
-    char c;
-    if (strlen(mac_address) != 17)
-        return false;
-    for (int i = 0; i < 17; i++)
-    {
-        c = *(mac_address + i);
-        if (i % 3 == 2)
-        {
-            if (c != ':')
-                return false;
-        }
-        else
-        {
-            if (c < '0')
-                return false;
-            if (c > '9' && c < 'A')
-                return false;
-            if (c > 'F' && c < 'a')
-                return false;
-            if (c > 'f')
-                return false;
-        }
-    }
-    return true;
-}
-
-std::string AirPlayServer::random_mac()
-{
-    char str[3];
-    int octet = rand() % 64;
-    octet = (octet << 1) + LOCAL;
-    octet = (octet << 1) + MULTICAST;
-    snprintf(str, 3, "%02x", octet);
-    std::string mac_address(str);
-    for (int i = 1; i < OCTETS; i++)
-    {
-        mac_address = mac_address + ":";
-        octet = rand() % 256;
-        snprintf(str, 3, "%02x", octet);
-        mac_address = mac_address + str;
-    }
-    return mac_address;
 }
 
 bool AirPlayServer::option_has_value(const int i, const int argc, std::string option, const char *next_arg)
@@ -1660,35 +1590,6 @@ void AirPlayServer::process_metadata(int count, const char *dmap_tag, const unsi
     printf("\n");
 }
 
-int AirPlayServer::parse_dmap_header(const unsigned char *metadata, char *tag, int *len)
-{
-    const unsigned char *header = metadata;
-
-    bool istag = true;
-    for (int i = 0; i < 4; i++)
-    {
-        tag[i] = (char)*header;
-        if (!isalpha(tag[i]))
-        {
-            istag = false;
-        }
-        header++;
-    }
-
-    *len = 0;
-    for (int i = 0; i < 4; i++)
-    {
-        *len <<= 8;
-        *len += (int)*header;
-        header++;
-    }
-    if (!istag || *len < 0)
-    {
-        return 1;
-    }
-    return 0;
-}
-
 int AirPlayServer::register_dnssd()
 {
     int dnssd_error;
@@ -1704,8 +1605,8 @@ int AirPlayServer::register_dnssd()
         {
             LOGE("DNSServiceRegister call returned kDNSServiceErr_NameConflict");
             LOGI("Is another instance of %s running with the same DeviceID (MAC address) or using same network ports?",
-                 DEFAULT_NAME);
-            LOGI("Use options -m ... and -p ... to allow multiple instances of %s to run concurrently", DEFAULT_NAME);
+                 server_name);
+            LOGI("Use options -m ... and -p ... to allow multiple instances of %s to run concurrently", server_name);
         }
         else
         {
