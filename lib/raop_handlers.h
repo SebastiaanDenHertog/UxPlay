@@ -354,11 +354,7 @@ raop_handler_pairsetup_pin(raop_conn_t *conn,
 	return;
     }
  authentication_failed:;
-    http_response_destroy(response);
-    response = http_response_init("RTSP/1.0", 470, "Client Authentication Failure");
-    const char *cseq = http_request_get_header(request, "CSeq");
-    http_response_add_header(response, "CSeq", cseq);
-    http_response_add_header(response, "Server", "AirTunes/"GLOBAL_VERSION);
+    response = http_response_revise(response, 470, "Client Authentication Failure");
     *response_data = NULL;
     response_datalen = 0;
     return;
