@@ -121,7 +121,7 @@ static unsigned short display[5] = {0}, tcp[3] = {0}, udp[3] = {0};
 static bool debug_log = DEFAULT_DEBUG_LOG;
 static int log_level = LOGGER_INFO;
 static bool bt709_fix = false;
-static int max_connections = 2;
+static int nohold = 0;
 static unsigned short raop_port;
 static unsigned short airplay_port;
 static uint64_t remote_clock_offset = 0;
@@ -1305,14 +1305,10 @@ static void parse_arguments(int argc, char *argv[])
         else if (arg == "-bt709")
         {
             bt709_fix = true;
-        }
-        else if (arg == "-nohold")
-        {
-            max_connections = 3;
-        }
-        else if (arg == "-al")
-        {
-            int n;
+        } else if (arg == "-nohold") {
+            nohold = 1;
+        } else if (arg == "-al") {
+	    int n;
             char *end;
             if (i < argc - 1 && *argv[i + 1] != '-')
             {
@@ -2289,9 +2285,8 @@ static int start_raop_server(unsigned short display[5], unsigned short tcp[3], u
     }
     raop_set_log_callback(raop, log_callback, NULL);
     raop_set_log_level(raop, log_level);
-    /* set max number of connections = 2 to protect against capture by new client */
-    if (raop_init2(raop, max_connections, mac_address.c_str(), keyfile.c_str()))
-    {
+    /* set nohold = 1 to allow  capture by new client */
+    if (raop_init2(raop, nohold, mac_address.c_str(), keyfile.c_str())){
         LOGE("Error initializing raop (2)!");
         free(raop);
         return -1;

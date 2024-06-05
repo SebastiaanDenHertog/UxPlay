@@ -1,25 +1,24 @@
 #ifndef AIRPLAYSERVER_H
 #define AIRPLAYSERVER_H
 
-#include <stddef.h>
-#include <cstring>
-#include <signal.h>
-#include <unistd.h>
-#include <ctype.h>
 #include <string>
-#include <algorithm>
 #include <vector>
 #include <fstream>
 #include <sstream>
-#include <iterator>
-#include <sys/stat.h>
+#include <algorithm>
+#include <cstdarg>
 #include <cstdio>
-#include <stdarg.h>
-#include <math.h>
-
-#ifdef _WIN32 /*modifications for Windows compilation */
-#include <glib.h>
+#include <cmath>
+#include <cstring>
+#include <signal.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <iterator>
+#include <sys/types.h>
 #include <unordered_map>
+
+#ifdef _WIN32
+#include <glib.h>
 #include <winsock2.h>
 #include <iphlpapi.h>
 #else
@@ -27,7 +26,6 @@
 #include <sys/utsname.h>
 #include <sys/socket.h>
 #include <ifaddrs.h>
-#include <sys/types.h>
 #include <pwd.h>
 #ifdef __linux__
 #include <netpacket/packet.h>
@@ -43,17 +41,17 @@
 #include "renderers/video_renderer.h"
 #include "renderers/audio_renderer.h"
 
-void log(int level, const char *format, ...);
-void log_callback(void *cls, int level, const char *msg);
-size_t write_coverart(const char *filename, const void *image, size_t len);
-int log_level;
+#define LOGD(...) log(LOGGER_DEBUG, __VA_ARGS__)
+#define LOGI(...) log(LOGGER_INFO, __VA_ARGS__)
+#define LOGW(...) log(LOGGER_WARNING, __VA_ARGS__)
+#define LOGE(...) log(LOGGER_ERR, __VA_ARGS__)
 
 class AirPlayServer
 {
 public:
-    AirPlayServer();
+    AirPlayServer(int port, const char *name);
     void initialize(int argc, char *argv[]);
-    void start(int argc, char *argv[]);
+    void run(int argc, char *argv[]);
     void stop();
     void reset();
     void restart();
@@ -62,7 +60,6 @@ public:
 private:
     bool file_has_write_access(const char *filename);
     char *create_pin_display(char *pin_str, int margin, int gap);
-
     void parse_arguments(int argc, char *argv[]);
     void dump_audio_to_file(unsigned char *data, int datalen, unsigned char type);
     void dump_video_to_file(unsigned char *data, int datalen);
@@ -73,10 +70,6 @@ private:
     std::string random_mac();
     void process_metadata(int count, const std::string &dmap_tag, const unsigned char *metadata, int datalen);
     int parse_dmap_header(const unsigned char *metadata, char *tag, int *len);
-
-    gboolean reset_callback(gpointer loop);
-    gboolean sigint_callback(gpointer loop);
-    gboolean sigterm_callback(gpointer loop);
     int parse_hw_addr(std::string str, std::vector<char> &hw_addr);
     const char *get_homedir();
     bool option_has_value(const int i, const int argc, std::string option, const char *next_arg);
@@ -87,7 +80,6 @@ private:
     bool get_videorotate(const char *str, videoflip_t *videoflip);
     void append_hostname(std::string &server_name);
     void process_metadata(int count, const char *dmap_tag, const unsigned char *metadata, int datalen);
-    int parse_dmap_header(const unsigned char *metadata, char *tag, int *len);
     int register_dnssd();
     void unregister_dnssd();
     void stop_dnssd();
@@ -119,8 +111,9 @@ private:
     static bool check_register(void *cls, const char *client_pk);
     static void report_client_request(void *cls, char *deviceid, char *model, char *name, bool *admit);
 
-    dnssd_t *dnssd;
-    raop_t *raop;
+    static dnssd_t *dnssd;
+    static raop_t *raop;
+    static logger_t *render_logger;
     std::string server_name;
     bool audio_sync;
     bool video_sync;
@@ -186,9 +179,7 @@ private:
     unsigned short tcp[3];
     unsigned short udp[3];
 
-    // Define constants
-    static constexpr const char *DEFAULT_NAME = "UxPlay";
-    static constexpr bool DEFAULT_DEBUG_LOG = false;
+    static constexpr bool DEFAULT_DEBUG_LOG = true;
     static constexpr unsigned int NTP_TIMEOUT_LIMIT = 5;
     static constexpr int SECOND_IN_USECS = 1000000;
     static constexpr int SECOND_IN_NSECS = 1000000000UL;
