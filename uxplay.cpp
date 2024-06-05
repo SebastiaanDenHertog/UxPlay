@@ -67,7 +67,7 @@
 #define SECOND_IN_USECS 1000000
 #define SECOND_IN_NSECS 1000000000UL
 #define DEFAULT_NAME "UxPlay"
-#define DEFAULT_DEBUG_LOG false
+#define DEFAULT_DEBUG_LOG true
 #define LOWEST_ALLOWED_PORT 1024
 #define HIGHEST_PORT 65535
 #define NTP_TIMEOUT_LIMIT 5
@@ -86,7 +86,7 @@ static bool reset_loop = false;
 static unsigned int open_connections = 0;
 static std::string videosink = "autovideosink";
 static videoflip_t videoflip[2] = {NONE, NONE};
-static bool use_video = true;
+static bool use_video = false;
 static unsigned char compression_type = 0;
 static std::string audiosink = "autoaudiosink";
 static int audiodelay = -1;
@@ -1305,10 +1305,14 @@ static void parse_arguments(int argc, char *argv[])
         else if (arg == "-bt709")
         {
             bt709_fix = true;
-        } else if (arg == "-nohold") {
+        }
+        else if (arg == "-nohold")
+        {
             nohold = 1;
-        } else if (arg == "-al") {
-	    int n;
+        }
+        else if (arg == "-al")
+        {
+            int n;
             char *end;
             if (i < argc - 1 && *argv[i + 1] != '-')
             {
@@ -2286,7 +2290,8 @@ static int start_raop_server(unsigned short display[5], unsigned short tcp[3], u
     raop_set_log_callback(raop, log_callback, NULL);
     raop_set_log_level(raop, log_level);
     /* set nohold = 1 to allow  capture by new client */
-    if (raop_init2(raop, nohold, mac_address.c_str(), keyfile.c_str())){
+    if (raop_init2(raop, nohold, mac_address.c_str(), keyfile.c_str()))
+    {
         LOGE("Error initializing raop (2)!");
         free(raop);
         return -1;
