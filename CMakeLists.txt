@@ -31,11 +31,11 @@ if ( ( UNIX AND NOT APPLE ) OR USE_X11 )
   endif()
 endif()
 
-if( UNIX AND NOT APPLE )
- add_definitions( -DSUPPRESS_AVAHI_COMPAT_WARNING )
-else()
-  set( CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE )
-endif()
+  if( UNIX AND NOT APPLE )
+  add_definitions( -DSUPPRESS_AVAHI_COMPAT_WARNING )
+  else()
+    set( CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE )
+  endif()
 
 add_subdirectory( lib/llhttp )
 add_subdirectory( lib/playfair )
@@ -59,10 +59,10 @@ target_link_libraries( uxplay
                    airplay
 		   )
 
-install( TARGETS  uxplay RUNTIME DESTINATION bin )
-install( FILES uxplay.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1 )
-install( FILES README.md README.txt README.html LICENSE DESTINATION ${CMAKE_INSTALL_DOCDIR} ) 
-install( FILES lib/llhttp/LICENSE-MIT DESTINATION ${CMAKE_INSTALL_DOCDIR}/llhttp ) 
+#install( TARGETS  uxplay RUNTIME DESTINATION bin )
+#install( FILES uxplay.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1 )
+#install( FILES README.md README.txt README.html LICENSE DESTINATION ${CMAKE_INSTALL_DOCDIR} ) 
+#install( FILES lib/llhttp/LICENSE-MIT DESTINATION ${CMAKE_INSTALL_DOCDIR}/llhttp ) 
 
 # uninstall target
 if(NOT TARGET uninstall)
