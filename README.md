@@ -1206,6 +1206,10 @@ tvOS 12.2.1), so it does not seem to matter what version UxPlay claims to be.
 
 
 # Changelog
+non-official version 
+1.68 2023-06-05   Created class for the uxplay.cpp file and main.cpp to run it. Also added the cmake to build it all.
+		  As of today(2023-06-05), the code runs but it does not show up. ```use_video``` is turned off because of a Segmentation fault.
+
 1.68 2023-12-31   New  simpler (default) method for generating a persistent public key from the server MAC 
                   address (which can now be set with the -m option). (The previous method is still available 
                   with -key option).  New option -reg to maintain a register of pin-authenticated clients.   Corrected 
