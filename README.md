@@ -1,19 +1,21 @@
-# UxPlay 1.68:  AirPlay-Mirror and AirPlay-Audio server for Linux, macOS, and Unix (now also runs on Windows).
+# UxPlay 1.69:  AirPlay-Mirror and AirPlay-Audio server for Linux, macOS, and Unix (now also runs on Windows).
 
-### Now developed at the GitHub site [https://github.com/FDH2/UxPlay](https://github.com/FDH2/UxPlay) (where ALL user issues should be posted, and latest versions can be found).
+### **Now developed at the GitHub site [https://github.com/FDH2/UxPlay](https://github.com/FDH2/UxPlay) (where ALL user issues should be posted, and latest versions can be found).**
 
-   * _**NEW in v1.68**: Volume-control improvements, plus improved support for Apple-style one-time "pin" codes introduced in 1.67: a
-    register of pin-registered clients can  now optionally be  maintained to check returning clients; a simpler  method for generating
-    a persistent public key (based on the MAC address, which can be set in the UxPlay startup file) is now the default. (The OpenSSL
-    "pem-file"  method introduced in 1.67 is still available with the "-key" option.)_
-    
-   
+   * _**NEW in v1.69**: minor changes for users: -nofreeze option to NOT leave frozen
+   video in place when a network failure occurs; internal changes/improvements
+   needed for planned future HLS video streaming support._
+
+   * **An experimental ("beta") version of UxPlay with support for HLS streaming of YouTube Videos from the YouTube app on an iOS client is now available at** https://github.com/FDH2/UxPlay/tree/video  .
+    _See the [Wiki page](https://github.com/FDH2/UxPlay/wiki/experimental-version-of-UxPlay-with-support-for-HLS-video-streaming-(you-tube-movies)) for details._
+
 ## Highlights:
 
    * GPLv3, open source.
    * Originally supported only AirPlay Mirror protocol, now has added support
      for AirPlay Audio-only (Apple Lossless ALAC) streaming 
-     from current iOS/iPadOS clients. **There is no support for Airplay2 video-streaming protocol, and none is planned.**
+     from current iOS/iPadOS clients. **There is no current support for Airplay HLS
+     video-streaming (e.g., YouTube video) but this is in development.**
    * macOS computers (2011 or later, both Intel and "Apple Silicon" M1/M2
      systems) can act either as AirPlay clients, or
      as the server running UxPlay. Using AirPlay, UxPlay can
@@ -58,7 +60,9 @@ for [running UxPlay](#running-uxplay) to see which of your distribution's **GStr
 a 2 second latency imposed by iOS.
 
 * Add any UxPlay options you want to use as defaults to a startup file `~/.uxplayrc`
-(see "`man uxplay`" or "``uxplay -h``" for format and other possible locations).
+(see "`man uxplay`" or "``uxplay -h``" for format and other possible locations).   In particular, if your system uses  PipeWire audio or
+Wayland video systems, you may wish to add "as pipewiresink" or "vs waylandsink" as defaults to the file. _(Output from terminal commands "ps waux | grep pulse" or "pactl info" will contain "pipewire" if your Linux/BSD system uses it)._
+
 
 * On Raspberry Pi: If you use Ubuntu 22.10 or earlier, GStreamer must
 be [patched](https://github.com/FDH2/UxPlay/wiki/Gstreamer-Video4Linux2-plugin-patches) to use hardware video decoding by the Broadcom GPU
@@ -125,11 +129,12 @@ switch back by initiating a_ **Mirror** _mode connection; cover-art display stop
 the Apple TV app cannot be watched using UxPlay's AirPlay Mirror mode (only the unprotected audio will be streamed, in AAC format),
 but both video and audio content from  DRM-free apps like "YouTube app" will be streamed  by UxPlay in Mirror mode.**
 
-* **As UxPlay does not support non-Mirror AirPlay2 video streaming (where the
+* **As UxPlay does not currently support non-Mirror AirPlay video streaming (where the
 client controls a web server on the AirPlay server that directly receives
-content to avoid it being decoded and re-encoded by the client),
+HLS content to avoid it being decoded and re-encoded by the client),
 using the icon for AirPlay video in apps such as the YouTube app
-will only send audio (in lossless ALAC format) without the accompanying video.**
+will only send audio (in lossless ALAC format) without the accompanying
+video (there are plans to support HLS video in future releases of UxPlay)**
 
 ### Possibility for using hardware-accelerated h264 video-decoding, if available.
 
@@ -642,7 +647,6 @@ After installing GStreamer, build and install uxplay: open a terminal and change
 
    `pacman -S mingw-w64-x86_64-libplist mingw-w64-x86_64-gstreamer mingw-w64-x86_64-gst-plugins-base`
 
-    Note that libplist will be linked statically to the uxplay executable.
     If you are trying a different Windows build system, MSVC versions of GStreamer
     for Windows are available from the [official GStreamer site](https://gstreamer.freedesktop.org/download/),
     but only the MinGW 64-bit build on MSYS2 has been tested.
@@ -875,6 +879,9 @@ which will not work if a firewall is running.
    from the server (these are sent every 3 seconds to check if the client is still present, and synchronize with it).   After
    _n_ failures, the client will be presumed to be offline, and the connection will be reset to allow a new
    connection.   The default value of _n_ is 5; the value _n_ = 0 means "no limit" on timeouts.
+
+**-nofreeze** closes the video window after a reset due to ntp timeout (default is to leave window
+   open to allow a smoother reconection to the same client).  This option may be useful in fullscreen mode.
 
 **-nc** maintains previous UxPlay < 1.45 behavior that does **not close** the video window when the the client
    sends the "Stop Mirroring" signal. _This option is currently used by default in macOS,
@@ -1209,6 +1216,11 @@ tvOS 12.2.1), so it does not seem to matter what version UxPlay claims to be.
 non-official version 
 1.68 2023-06-05   Created class for the uxplay.cpp file and main.cpp to run it. Also added the cmake to build it all.
 		  As of today(2023-06-05), the code runs but it does not show up. ```use_video``` is turned off because of a Segmentation fault.
+        
+1.69 2024-08-09   Internal improvements (e.g. in -nohold option, identifying GStreamer videosink
+                  selected by autovideosink, finding X11 display) in anticipation of future HLS video support.
+		  New -nofreeze option to not leave frozen video in place when a network connection is reset.
+		  Fixes for GStreamer-1.24.x changes.
 
 1.68 2023-12-31   New  simpler (default) method for generating a persistent public key from the server MAC 
                   address (which can now be set with the -m option). (The previous method is still available 

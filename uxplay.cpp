@@ -62,7 +62,7 @@
 #include "renderers/video_renderer.h"
 #include "renderers/audio_renderer.h"
 
-#define VERSION "1.68"
+#define VERSION "1.69"
 
 #define SECOND_IN_USECS 1000000
 #define SECOND_IN_NSECS 1000000000UL
@@ -122,6 +122,7 @@ static bool debug_log = DEFAULT_DEBUG_LOG;
 static int log_level = LOGGER_INFO;
 static bool bt709_fix = false;
 static int nohold = 0;
+static bool nofreeze = false;
 static unsigned short raop_port;
 static unsigned short airplay_port;
 static uint64_t remote_clock_offset = 0;
@@ -707,7 +708,8 @@ static void print_info(char *name)
     printf("-al x     Audio latency in seconds (default 0.25) reported to client.\n");
     printf("-ca <fn>  In Airplay Audio (ALAC) mode, write cover-art to file <fn>\n");
     printf("-reset n  Reset after 3n seconds client silence (default %d, 0=never)\n", NTP_TIMEOUT_LIMIT);
-    printf("-nc       do Not Close video window when client stops mirroring\n");
+    printf("-nofreeze Do NOT leave frozen screen in place after reset\n");
+    printf("-nc       Do NOT Close video window when client stops mirroring\n");
     printf("-nohold   Drop current connection when new client connects.\n");
     printf("-restrict Restrict clients to those specified by \"-allow <deviceID>\"\n");
     printf("          UxPlay displays deviceID when a client attempts to connect\n");
@@ -1434,11 +1436,11 @@ static void parse_arguments(int argc, char *argv[])
             i++;
             db_low = db1;
             db_high = db2;
-            printf("db range %f:%f\n", db_low, db_high);
-        }
-        else
-        {
-            fprintf(stderr, "unknown option %s, stopping (for help use option \"-h\")\n", argv[i]);
+	    printf("db range %f:%f\n", db_low, db_high);
+        } else if (arg == "-nofreeze") {
+            nofreeze = true;
+        } else {
+            fprintf(stderr, "unknown option %s, stopping (for help use option \"-h\")\n",argv[i]);
             exit(1);
         }
     }
@@ -1649,7 +1651,7 @@ static int register_dnssd()
         return -4;
     }
 
-    LOGD("register_dnssd: advertised AirPlay service with \"Features\" code = 0x%X",
+    LOGD("register_dnssd: advertised AirPlay service with \"Features\" code = 0x%llX",
          dnssd_get_airplay_features(dnssd));
     return 0;
 }
@@ -1691,9 +1693,9 @@ static int start_dnssd(std::vector<char> hw_addr, std::string name)
         return 1;
     }
 
-    /* after dnssd starts, reset the default feature set here
-    /* (overwrites features set in dnssdint.h */
-    /* default: FEATURES_1 = 0x5A7FFEE6, FEATURES_2 = 0 */
+    /* after dnssd starts, reset the default feature set here 
+     * (overwrites features set in dnssdint.h). 
+     * default: FEATURES_1 = 0x5A7FFEE6, FEATURES_2 = 0 */
 
     dnssd_set_airplay_features(dnssd, 0, 0); // AirPlay video supported
     dnssd_set_airplay_features(dnssd, 1, 1); // photo supported
@@ -1817,6 +1819,22 @@ static bool check_blocked_client(char *deviceid)
 
 // Server callbacks
 
+extern "C" void video_reset(void *cls) {
+    reset_loop = true;
+    remote_clock_offset = 0;
+    relaunch_video = true;
+}
+
+
+
+extern "C" void video_reset(void *cls) {
+    reset_loop = true;
+    remote_clock_offset = 0;
+    relaunch_video = true;
+}
+
+
+
 extern "C" void display_pin(void *cls, char *pin)
 {
     int margin = 10;
@@ -1886,8 +1904,9 @@ extern "C" void conn_reset(void *cls, int timeouts, bool reset_video)
              "   the default timeout limit n = %d can be changed with the \"-reset n\" option",
              NTP_TIMEOUT_LIMIT);
     }
-    printf("reset_video %d\n", (int)reset_video);
-    close_window = reset_video; /* leave "frozen" window open if reset_video is false */
+    if (!nofreeze) {
+        close_window = reset_video;    /* leave "frozen" window open if reset_video is false */
+    }
     raop_stop(raop);
     reset_loop = true;
 }
@@ -2280,6 +2299,7 @@ static int start_raop_server(unsigned short display[5], unsigned short tcp[3], u
     raop_cbs.register_client = register_client;
     raop_cbs.check_register = check_register;
     raop_cbs.export_dacp = export_dacp;
+    raop_cbs.video_reset = video_reset;
 
     raop = raop_init(&raop_cbs);
     if (raop == NULL)
@@ -2554,6 +2574,11 @@ int main(int argc, char *argv[])
         }
     }
 
+    if (videosink == "d3d11videosink"  && use_video) {
+        if (fullscreen) {
+	  videosink.append(" fullscreen-toggle-mode=GST_D3D11_WINDOW_FULLSCREEN_TOGGLE_MODE_PROPERTY fullscreen=true ");
+        } else {
+	  videosink.append(" fullscreen-toggle-mode=GST_D3D11_WINDOW_FULLSCREEN_TOGGLE_MODE_ALT_ENTER ");
     if (videosink == "d3d11videosink" && use_video)
     {
         if (fullscreen)
