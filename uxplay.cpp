@@ -1436,11 +1436,15 @@ static void parse_arguments(int argc, char *argv[])
             i++;
             db_low = db1;
             db_high = db2;
-	    printf("db range %f:%f\n", db_low, db_high);
-        } else if (arg == "-nofreeze") {
+            printf("db range %f:%f\n", db_low, db_high);
+        }
+        else if (arg == "-nofreeze")
+        {
             nofreeze = true;
-        } else {
-            fprintf(stderr, "unknown option %s, stopping (for help use option \"-h\")\n",argv[i]);
+        }
+        else
+        {
+            fprintf(stderr, "unknown option %s, stopping (for help use option \"-h\")\n", argv[i]);
             exit(1);
         }
     }
@@ -1693,8 +1697,8 @@ static int start_dnssd(std::vector<char> hw_addr, std::string name)
         return 1;
     }
 
-    /* after dnssd starts, reset the default feature set here 
-     * (overwrites features set in dnssdint.h). 
+    /* after dnssd starts, reset the default feature set here
+     * (overwrites features set in dnssdint.h).
      * default: FEATURES_1 = 0x5A7FFEE6, FEATURES_2 = 0 */
 
     dnssd_set_airplay_features(dnssd, 0, 0); // AirPlay video supported
@@ -1819,21 +1823,19 @@ static bool check_blocked_client(char *deviceid)
 
 // Server callbacks
 
-extern "C" void video_reset(void *cls) {
+extern "C" void video_reset(void *cls)
+{
     reset_loop = true;
     remote_clock_offset = 0;
     relaunch_video = true;
 }
 
-
-
-extern "C" void video_reset(void *cls) {
+extern "C" void video_reset(void *cls)
+{
     reset_loop = true;
     remote_clock_offset = 0;
     relaunch_video = true;
 }
-
-
 
 extern "C" void display_pin(void *cls, char *pin)
 {
@@ -1904,8 +1906,9 @@ extern "C" void conn_reset(void *cls, int timeouts, bool reset_video)
              "   the default timeout limit n = %d can be changed with the \"-reset n\" option",
              NTP_TIMEOUT_LIMIT);
     }
-    if (!nofreeze) {
-        close_window = reset_video;    /* leave "frozen" window open if reset_video is false */
+    if (!nofreeze)
+    {
+        close_window = reset_video; /* leave "frozen" window open if reset_video is false */
     }
     raop_stop(raop);
     reset_loop = true;
@@ -2574,235 +2577,237 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (videosink == "d3d11videosink"  && use_video) {
-        if (fullscreen) {
-	  videosink.append(" fullscreen-toggle-mode=GST_D3D11_WINDOW_FULLSCREEN_TOGGLE_MODE_PROPERTY fullscreen=true ");
-        } else {
-	  videosink.append(" fullscreen-toggle-mode=GST_D3D11_WINDOW_FULLSCREEN_TOGGLE_MODE_ALT_ENTER ");
     if (videosink == "d3d11videosink" && use_video)
     {
         if (fullscreen)
         {
-            videosink.append(" fullscreen-toggle-mode=property fullscreen=true");
+            videosink.append(" fullscreen-toggle-mode=GST_D3D11_WINDOW_FULLSCREEN_TOGGLE_MODE_PROPERTY fullscreen=true ");
         }
         else
         {
-            videosink.append(" fullscreen-toggle-mode=alt-enter");
+            videosink.append(" fullscreen-toggle-mode=GST_D3D11_WINDOW_FULLSCREEN_TOGGLE_MODE_ALT_ENTER ");
+            if (fullscreen)
+            {
+                videosink.append(" fullscreen-toggle-mode=property fullscreen=true");
+            }
+            else
+            {
+                videosink.append(" fullscreen-toggle-mode=alt-enter");
+            }
+            LOGI("d3d11videosink is being used with option fullscreen-toggle-mode=alt-enter\n"
+                 "Use Alt-Enter key combination to toggle into/out of full-screen mode");
         }
-        LOGI("d3d11videosink is being used with option fullscreen-toggle-mode=alt-enter\n"
-             "Use Alt-Enter key combination to toggle into/out of full-screen mode");
-    }
 
-    if (bt709_fix && use_video)
-    {
-        video_parser.append(" ! ");
-        video_parser.append(BT709_FIX);
-    }
+        if (bt709_fix && use_video)
+        {
+            video_parser.append(" ! ");
+            video_parser.append(BT709_FIX);
+        }
 
-    if (require_password && registration_list)
-    {
-        if (pairing_register == "")
+        if (require_password && registration_list)
+        {
+            if (pairing_register == "")
+            {
+                const char *homedir = get_homedir();
+                if (homedir)
+                {
+                    pairing_register = homedir;
+                    pairing_register.append("/.uxplay.register");
+                }
+            }
+        }
+
+        /* read in public keys that were previously registered with pair-setup-pin */
+        if (require_password && registration_list && strlen(pairing_register.c_str()))
+        {
+            size_t len = 0;
+            std::string key;
+            int clients = 0;
+            std::ifstream file(pairing_register);
+            if (file.is_open())
+            {
+                std::string line;
+                while (std::getline(file, line))
+                {
+                    /*32 bytes pk -> base64 -> strlen(pk64) = 44 chars = line[0:43]; add '\0' at line[44] */
+                    line[44] = '\0';
+                    std::string pk = line.c_str();
+                    registered_keys.push_back(key.assign(pk));
+                    clients++;
+                }
+                if (clients)
+                {
+                    LOGI("Register %s lists %d pin-registered clients", pairing_register.c_str(), clients);
+                }
+                file.close();
+            }
+        }
+
+        if (require_password && keyfile == "0")
         {
             const char *homedir = get_homedir();
             if (homedir)
             {
-                pairing_register = homedir;
-                pairing_register.append("/.uxplay.register");
+                keyfile.erase();
+                keyfile = homedir;
+                keyfile.append("/.uxplay.pem");
             }
-        }
-    }
-
-    /* read in public keys that were previously registered with pair-setup-pin */
-    if (require_password && registration_list && strlen(pairing_register.c_str()))
-    {
-        size_t len = 0;
-        std::string key;
-        int clients = 0;
-        std::ifstream file(pairing_register);
-        if (file.is_open())
-        {
-            std::string line;
-            while (std::getline(file, line))
+            else
             {
-                /*32 bytes pk -> base64 -> strlen(pk64) = 44 chars = line[0:43]; add '\0' at line[44] */
-                line[44] = '\0';
-                std::string pk = line.c_str();
-                registered_keys.push_back(key.assign(pk));
-                clients++;
+                LOGE("could not determine $HOME: public key wiil not be saved, and so will not be persistent");
             }
-            if (clients)
-            {
-                LOGI("Register %s lists %d pin-registered clients", pairing_register.c_str(), clients);
-            }
-            file.close();
         }
-    }
 
-    if (require_password && keyfile == "0")
-    {
-        const char *homedir = get_homedir();
-        if (homedir)
+        if (keyfile != "")
         {
-            keyfile.erase();
-            keyfile = homedir;
-            keyfile.append("/.uxplay.pem");
+            LOGI("public key storage (for persistence) is in %s", keyfile.c_str());
         }
-        else
+
+        if (do_append_hostname)
         {
-            LOGE("could not determine $HOME: public key wiil not be saved, and so will not be persistent");
+            append_hostname(server_name);
         }
-    }
 
-    if (keyfile != "")
-    {
-        LOGI("public key storage (for persistence) is in %s", keyfile.c_str());
-    }
-
-    if (do_append_hostname)
-    {
-        append_hostname(server_name);
-    }
-
-    if (!gstreamer_init())
-    {
-        LOGE("stopping");
-        exit(1);
-    }
-
-    render_logger = logger_init();
-    logger_set_callback(render_logger, log_callback, NULL);
-    logger_set_level(render_logger, log_level);
-
-    if (use_audio)
-    {
-        audio_renderer_init(render_logger, audiosink.c_str(), &audio_sync, &video_sync);
-    }
-    else
-    {
-        LOGI("audio_disabled");
-    }
-
-    if (use_video)
-    {
-        video_renderer_init(render_logger, server_name.c_str(), videoflip, video_parser.c_str(),
-                            video_decoder.c_str(), video_converter.c_str(), videosink.c_str(), &fullscreen, &video_sync);
-        video_renderer_start();
-    }
-
-    if (udp[0])
-    {
-        LOGI("using network ports UDP %d %d %d TCP %d %d %d", udp[0], udp[1], udp[2], tcp[0], tcp[1], tcp[2]);
-    }
-
-    if (!use_random_hw_addr)
-    {
-        if (strlen(mac_address.c_str()) == 0)
+        if (!gstreamer_init())
         {
-            mac_address = find_mac();
-            LOGI("using system MAC address %s", mac_address.c_str());
+            LOGE("stopping");
+            exit(1);
         }
-        else
-        {
-            LOGI("using user-set MAC address %s", mac_address.c_str());
-        }
-    }
-    if (mac_address.empty())
-    {
-        srand(time(NULL) * getpid());
-        mac_address = random_mac();
-        LOGI("using randomly-generated MAC address %s", mac_address.c_str());
-    }
-    parse_hw_addr(mac_address, server_hw_addr);
 
-    if (coverart_filename.length())
-    {
-        LOGI("any AirPlay audio cover-art will be written to file  %s", coverart_filename.c_str());
-        write_coverart(coverart_filename.c_str(), (const void *)empty_image, sizeof(empty_image));
-    }
+        render_logger = logger_init();
+        logger_set_callback(render_logger, log_callback, NULL);
+        logger_set_level(render_logger, log_level);
 
-restart:
-    if (start_dnssd(server_hw_addr, server_name))
-    {
-        goto cleanup;
-    }
-    if (start_raop_server(display, tcp, udp, debug_log))
-    {
-        stop_dnssd();
-        goto cleanup;
-    }
-    if (register_dnssd())
-    {
-        stop_raop_server();
-        stop_dnssd();
-        goto cleanup;
-    }
-reconnect:
-    compression_type = 0;
-    close_window = new_window_closing_behavior;
-    main_loop();
-    if (relaunch_video || reset_loop)
-    {
-        if (reset_loop)
-        {
-            reset_loop = false;
-        }
-        else
-        {
-            raop_stop(raop);
-        }
         if (use_audio)
-            audio_renderer_stop();
-        if (use_video && close_window)
         {
-            video_renderer_destroy();
+            audio_renderer_init(render_logger, audiosink.c_str(), &audio_sync, &video_sync);
+        }
+        else
+        {
+            LOGI("audio_disabled");
+        }
+
+        if (use_video)
+        {
             video_renderer_init(render_logger, server_name.c_str(), videoflip, video_parser.c_str(),
-                                video_decoder.c_str(), video_converter.c_str(), videosink.c_str(), &fullscreen,
-                                &video_sync);
+                                video_decoder.c_str(), video_converter.c_str(), videosink.c_str(), &fullscreen, &video_sync);
             video_renderer_start();
         }
-        if (relaunch_video)
+
+        if (udp[0])
         {
-            unsigned short port = raop_get_port(raop);
-            raop_start(raop, &port);
-            raop_set_port(raop, port);
-            goto reconnect;
+            LOGI("using network ports UDP %d %d %d TCP %d %d %d", udp[0], udp[1], udp[2], tcp[0], tcp[1], tcp[2]);
+        }
+
+        if (!use_random_hw_addr)
+        {
+            if (strlen(mac_address.c_str()) == 0)
+            {
+                mac_address = find_mac();
+                LOGI("using system MAC address %s", mac_address.c_str());
+            }
+            else
+            {
+                LOGI("using user-set MAC address %s", mac_address.c_str());
+            }
+        }
+        if (mac_address.empty())
+        {
+            srand(time(NULL) * getpid());
+            mac_address = random_mac();
+            LOGI("using randomly-generated MAC address %s", mac_address.c_str());
+        }
+        parse_hw_addr(mac_address, server_hw_addr);
+
+        if (coverart_filename.length())
+        {
+            LOGI("any AirPlay audio cover-art will be written to file  %s", coverart_filename.c_str());
+            write_coverart(coverart_filename.c_str(), (const void *)empty_image, sizeof(empty_image));
+        }
+
+    restart:
+        if (start_dnssd(server_hw_addr, server_name))
+        {
+            goto cleanup;
+        }
+        if (start_raop_server(display, tcp, udp, debug_log))
+        {
+            stop_dnssd();
+            goto cleanup;
+        }
+        if (register_dnssd())
+        {
+            stop_raop_server();
+            stop_dnssd();
+            goto cleanup;
+        }
+    reconnect:
+        compression_type = 0;
+        close_window = new_window_closing_behavior;
+        main_loop();
+        if (relaunch_video || reset_loop)
+        {
+            if (reset_loop)
+            {
+                reset_loop = false;
+            }
+            else
+            {
+                raop_stop(raop);
+            }
+            if (use_audio)
+                audio_renderer_stop();
+            if (use_video && close_window)
+            {
+                video_renderer_destroy();
+                video_renderer_init(render_logger, server_name.c_str(), videoflip, video_parser.c_str(),
+                                    video_decoder.c_str(), video_converter.c_str(), videosink.c_str(), &fullscreen,
+                                    &video_sync);
+                video_renderer_start();
+            }
+            if (relaunch_video)
+            {
+                unsigned short port = raop_get_port(raop);
+                raop_start(raop, &port);
+                raop_set_port(raop, port);
+                goto reconnect;
+            }
+            else
+            {
+                LOGI("Re-launching RAOP server...");
+                stop_raop_server();
+                stop_dnssd();
+                goto restart;
+            }
         }
         else
         {
-            LOGI("Re-launching RAOP server...");
+            LOGI("Stopping...");
             stop_raop_server();
             stop_dnssd();
-            goto restart;
+        }
+    cleanup:
+        if (use_audio)
+        {
+            audio_renderer_destroy();
+        }
+        if (use_video)
+        {
+            video_renderer_destroy();
+        }
+        logger_destroy(render_logger);
+        render_logger = NULL;
+        if (audio_dumpfile)
+        {
+            fclose(audio_dumpfile);
+        }
+        if (video_dumpfile)
+        {
+            fwrite(mark, 1, sizeof(mark), video_dumpfile);
+            fclose(video_dumpfile);
+        }
+        if (coverart_filename.length())
+        {
+            remove(coverart_filename.c_str());
         }
     }
-    else
-    {
-        LOGI("Stopping...");
-        stop_raop_server();
-        stop_dnssd();
-    }
-cleanup:
-    if (use_audio)
-    {
-        audio_renderer_destroy();
-    }
-    if (use_video)
-    {
-        video_renderer_destroy();
-    }
-    logger_destroy(render_logger);
-    render_logger = NULL;
-    if (audio_dumpfile)
-    {
-        fclose(audio_dumpfile);
-    }
-    if (video_dumpfile)
-    {
-        fwrite(mark, 1, sizeof(mark), video_dumpfile);
-        fclose(video_dumpfile);
-    }
-    if (coverart_filename.length())
-    {
-        remove(coverart_filename.c_str());
-    }
-}

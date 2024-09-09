@@ -88,6 +88,7 @@ private:
     int start_raop_server(unsigned short display[5], unsigned short tcp[3], unsigned short udp[3], bool debug_log);
     void stop_raop_server();
     void read_config_file(const char *filename);
+    static void video_reset(void *cls);
     static void display_pin(void *cls, char *pin);
     static void export_dacp(void *cls, const char *active_remote, const char *dacp_id);
     static void conn_init(void *cls);
