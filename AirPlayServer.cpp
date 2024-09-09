@@ -1421,8 +1421,7 @@ void AirPlayServer::parse_arguments(int argc, char *argv[])
         }
         else
         {
-            fprintf(stderr, "unknown option %s, stopping (for help use option \"-h\")\n", argv[i]);
-            exit(1);
+            fprintf(stderr, "unknown option %s, stopping (for help use option \"-help\")\n", argv[i]);
         }
     }
 }
