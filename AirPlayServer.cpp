@@ -2324,12 +2324,12 @@ void AirPlayServer::stop_raop_server()
     return;
 }
 
-void AirPlayServer::read_config_file(const char *filename, const char *uxplay_name)
+void AirPlayServer::read_config_file(const char *filename)
 {
     std::string config_file = filename;
     std::string option_char = "-";
     std::vector<std::string> options;
-    options.push_back(uxplay_name);
+    options.push_back("JARVIS");
     std::ifstream file(config_file);
     if (file.is_open())
     {
@@ -2428,29 +2428,29 @@ void AirPlayServer::read_config_file(const char *filename, const char *uxplay_na
     }
 }
 
-gboolean AirPlayServer::reset_callback(gpointer user_data)
+gboolean AirPlayServer::reset_callback(gpointer loop)
 {
-    AirPlayServer *server = static_cast<AirPlayServer *>(user_data);
+    AirPlayServer *server = static_cast<AirPlayServer *>(loop);
     if (server->reset_loop)
     {
-        g_main_loop_quit((GMainLoop *)user_data);
+        g_main_loop_quit((GMainLoop *)loop);
     }
     return TRUE;
 }
 
-gboolean AirPlayServer::sigint_callback(gpointer user_data)
+gboolean AirPlayServer::sigint_callback(gpointer loop)
 {
-    AirPlayServer *server = static_cast<AirPlayServer *>(user_data);
+    AirPlayServer *server = static_cast<AirPlayServer *>(loop);
     server->relaunch_video = false;
-    g_main_loop_quit((GMainLoop *)user_data);
+    g_main_loop_quit((GMainLoop *)loop);
     return TRUE;
 }
 
-gboolean AirPlayServer::sigterm_callback(gpointer user_data)
+gboolean AirPlayServer::sigterm_callback(gpointer loop)
 {
-    AirPlayServer *server = static_cast<AirPlayServer *>(user_data);
+    AirPlayServer *server = static_cast<AirPlayServer *>(loop);
     server->relaunch_video = false;
-    g_main_loop_quit((GMainLoop *)user_data);
+    g_main_loop_quit((GMainLoop *)loop);
     return TRUE;
 }
 
@@ -2464,9 +2464,9 @@ void AirPlayServer::main_loop()
         relaunch_video = true;
         gst_bus_watch_id = (guint)video_renderer_listen((void *)loop);
     }
-    guint reset_watch_id = g_timeout_add(100, (GSourceFunc)reset_callback, loop);
-    guint sigterm_watch_id = g_unix_signal_add(SIGTERM, (GSourceFunc)sigterm_callback, loop);
-    guint sigint_watch_id = g_unix_signal_add(SIGINT, (GSourceFunc)sigint_callback, loop);
+    guint reset_watch_id = g_timeout_add(100, (GSourceFunc)reset_callback, (gpointer)loop);
+    guint sigterm_watch_id = g_unix_signal_add(SIGTERM, (GSourceFunc)sigterm_callback, (gpointer)loop);
+    guint sigint_watch_id = g_unix_signal_add(SIGINT, (GSourceFunc)sigint_callback, (gpointer)loop);
     g_main_loop_run(loop);
 
     if (gst_bus_watch_id > 0)
@@ -2480,7 +2480,7 @@ void AirPlayServer::main_loop()
     g_main_loop_unref(loop);
 }
 
-void AirPlayServer::run(int argc, char *argv[])
+void AirPlayServer::run()
 {
     std::vector<char> server_hw_addr;
     std::string config_file = "";
@@ -2494,9 +2494,8 @@ void AirPlayServer::run(int argc, char *argv[])
     config_file = find_uxplay_config_file();
     if (config_file.length())
     {
-        read_config_file(config_file.c_str(), argv[0]);
+        read_config_file(config_file.c_str());
     }
-    parse_arguments(argc, argv);
 
     log_level = (debug_log ? LOGGER_DEBUG : LOGGER_INFO);
 
@@ -2698,12 +2697,7 @@ void AirPlayServer::run(int argc, char *argv[])
         LOGI("any AirPlay audio cover-art will be written to file  %s", coverart_filename.c_str());
         write_coverart(coverart_filename.c_str(), (const void *)empty_image, sizeof(empty_image));
     }
-
-    start_dnssd(server_hw_addr, server_name);
-
-    start_raop_server(display, tcp, udp, debug_log);
-
-    main_loop();
+    restart();
 }
 
 void AirPlayServer::restart()
@@ -2723,6 +2717,7 @@ void AirPlayServer::restart()
         stop_dnssd();
         cleanup();
     }
+    reconnect();
 }
 
 void AirPlayServer::reconnect()
@@ -2771,6 +2766,7 @@ void AirPlayServer::reconnect()
         stop_raop_server();
         stop_dnssd();
     }
+    cleanup();
 }
 
 void AirPlayServer::cleanup()
