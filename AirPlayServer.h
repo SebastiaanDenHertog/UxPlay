@@ -87,8 +87,9 @@ private:
     bool check_blocked_client(char *deviceid);
     int start_raop_server(unsigned short display[5], unsigned short tcp[3], unsigned short udp[3], bool debug_log);
     void stop_raop_server();
-    void read_config_file(const char *filename);
+    void read_config_file(const char *filename, const char *uxplay_name);
     static void video_reset(void *cls);
+    static void video_set_codec(void *cls, video_codec_t codec);
     static void display_pin(void *cls, char *pin);
     static void export_dacp(void *cls, const char *active_remote, const char *dacp_id);
     static void conn_init(void *cls);
@@ -178,8 +179,11 @@ private:
     double db_low;
     double db_high;
     bool taper_volume;
+    bool h265_support;
+    int n_renderers;
     unsigned short tcp[3];
     unsigned short udp[3];
+
 
     static constexpr bool DEFAULT_DEBUG_LOG = true;
     static constexpr unsigned int NTP_TIMEOUT_LIMIT = 5;
