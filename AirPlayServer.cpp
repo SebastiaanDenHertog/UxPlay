@@ -1,3 +1,5 @@
+
+
 #include "AirPlayServer.h"
 #include <csignal>
 #include <iostream>
@@ -34,7 +36,8 @@ static std::vector<std::string> registered_keys;
 #define MULTICAST 0
 #define LOCAL 1
 #define OCTETS 6
-#define VERSION "1.69"
+#define VERSION "1.70"
+#define DEFAULT_NAME "UxPlay"
 
 AirPlayServer::AirPlayServer()
     : server_name("JARVIS"),
@@ -86,7 +89,9 @@ AirPlayServer::AirPlayServer()
       registration_list(false),
       db_low(-30.0),
       db_high(0.0),
-      taper_volume(false)
+      taper_volume(false),
+      h265_support(false),
+      n_renderers(0)
 {
     std::fill(std::begin(display), std::end(display), 0);
     std::fill(std::begin(tcp), std::end(tcp), 0);
@@ -1694,11 +1699,6 @@ int AirPlayServer::start_dnssd(std::vector<char> hw_addr, std::string name)
     dnssd_set_airplay_features(dnssd, 30, 1); // RAOP support: with this bit set, the AirTunes service is not required.
     dnssd_set_airplay_features(dnssd, 31, 0); //
 
-    for (int i = 32; i < 64; i++)
-    {
-        dnssd_set_airplay_features(dnssd, i, 0);
-    }
-
     /*  bits 32-63 are  not used here: see  https://emanualcozzi.net/docs/airplay2/features
     dnssd_set_airplay_features(dnssd, 32, 0); // isCarPlay when ON,; Supports InitialVolume when OFF
     dnssd_set_airplay_features(dnssd, 33, 0); // Supports Air Play Video Play Queue
@@ -1738,6 +1738,7 @@ int AirPlayServer::start_dnssd(std::vector<char> hw_addr, std::string name)
     dnssd_set_airplay_features(dnssd, 60, 0); // Supports Audo Media Data Control
     dnssd_set_airplay_features(dnssd, 61, 0); // Supports RFC2198 redundancy
     */
+    dnssd_set_airplay_features(dnssd, 42, (int)h265_support);
 
     /* bit 27 of Features determines whether the AirPlay2 client-pairing protocol will be used (1) or not (0) */
     dnssd_set_airplay_features(dnssd, 27, (int)setup_legacy_pairing);
@@ -1887,9 +1888,6 @@ void AirPlayServer::video_process(void *cls, raop_ntp_t *ntp, h264_decode_struct
 
 void AirPlayServer::video_pause(void *cls)
 {
-#ifdef GST_124
-    return; // pause/resume changes in GStreamer-1.24 break this code
-#endif
     AirPlayServer *server = static_cast<AirPlayServer *>(cls);
     if (server->use_video)
     {
@@ -1899,9 +1897,6 @@ void AirPlayServer::video_pause(void *cls)
 
 void AirPlayServer::video_resume(void *cls)
 {
-#ifdef GST_124
-    return; // pause/resume changes in GStreamer-1.24 break this code
-#endif
     AirPlayServer *server = static_cast<AirPlayServer *>(cls);
     if (server->use_video)
     {
@@ -2060,6 +2055,16 @@ extern "C" void AirPlayServer::video_reset(void *cls)
     reset_loop = true;
     remote_clock_offset = 0;
     relaunch_video = true;
+}
+
+extern "C" void AirPlayServer::video_set_codec(void *cls, video_codec_t codec)
+{
+    AirPlayServer *server = static_cast<AirPlayServer *>(cls);
+    if (server->use_video)
+    {
+        bool video_is_h265 = (codec == VIDEO_CODEC_H265);
+        video_renderer_choose_codec(video_is_h265);
+    }
 }
 
 extern "C" void AirPlayServer::display_pin(void *cls, char *pin)
@@ -2339,12 +2344,12 @@ void AirPlayServer::stop_raop_server()
     return;
 }
 
-void AirPlayServer::read_config_file(const char *filename)
+void AirPlayServer::read_config_file(const char *filename, const char *uxplay_name)
 {
     std::string config_file = filename;
     std::string option_char = "-";
     std::vector<std::string> options;
-    options.push_back("JARVIS");
+    options.push_back(uxplay_name);
     std::ifstream file(config_file);
     if (file.is_open())
     {
@@ -2471,19 +2476,29 @@ gboolean AirPlayServer::sigterm_callback(gpointer loop)
 
 void AirPlayServer::main_loop()
 {
-    guint gst_bus_watch_id = 0;
+    guint gst_bus_watch_id[2] = {0};
+    g_assert(n_renderers <= 2);
     GMainLoop *loop = g_main_loop_new(NULL, FALSE);
     relaunch_video = false;
     if (use_video)
     {
         relaunch_video = true;
-        gst_bus_watch_id = (guint)video_renderer_listen((void *)loop);
+        for (int i = 0; i < n_renderers; i++)
+        {
+            gst_bus_watch_id[i] = (guint)video_renderer_listen((void *)loop, i);
+        }
     }
+
     guint reset_watch_id = g_timeout_add(100, (GSourceFunc)reset_callback, (gpointer)loop);
+    guint video_reset_watch_id = g_timeout_add(100, (GSourceFunc)video_reset_callback, (gpointer)loop);
     guint sigterm_watch_id = g_unix_signal_add(SIGTERM, (GSourceFunc)sigterm_callback, (gpointer)loop);
     guint sigint_watch_id = g_unix_signal_add(SIGINT, (GSourceFunc)sigint_callback, (gpointer)loop);
     g_main_loop_run(loop);
-
+    for (int i = 0; i < n_renderers; i++)
+    {
+        if (gst_bus_watch_id[i] > 0)
+            g_source_remove(gst_bus_watch_id[i]);
+    }
     if (gst_bus_watch_id > 0)
         g_source_remove(gst_bus_watch_id);
     if (sigint_watch_id > 0)
@@ -2574,15 +2589,15 @@ void AirPlayServer::run()
         }
     }
 
-    if (videosink == "d3d11videosink" && use_video)
+    if (videosink == "d3d11videosink" && videosink_options.empty() && use_video)
     {
         if (fullscreen)
         {
-            videosink.append(" fullscreen-toggle-mode=GST_D3D11_WINDOW_FULLSCREEN_TOGGLE_MODE_PROPERTY fullscreen=true ");
+            videosink_options.append(" fullscreen-toggle-mode=GST_D3D11_WINDOW_FULLSCREEN_TOGGLE_MODE_PROPERTY fullscreen=true ");
         }
         else
         {
-            videosink.append(" fullscreen-toggle-mode=GST_D3D11_WINDOW_FULLSCREEN_TOGGLE_MODE_ALT_ENTER ");
+            videosink_options.append(" fullscreen-toggle-mode=GST_D3D11_WINDOW_FULLSCREEN_TOGGLE_MODE_ALT_ENTER ");
         }
         LOGI("d3d11videosink is being used with option fullscreen-toggle-mode=alt-enter\n"
              "Use Alt-Enter key combination to toggle into/out of full-screen mode");
@@ -2677,8 +2692,10 @@ void AirPlayServer::run()
 
     if (use_video)
     {
+        n_renderers = h265_support ? 2 : 1;
         video_renderer_init(render_logger, server_name.c_str(), videoflip, video_parser.c_str(),
-                            video_decoder.c_str(), video_converter.c_str(), videosink.c_str(), &fullscreen, &video_sync);
+                            video_decoder.c_str(), video_converter.c_str(), videosink.c_str(),
+                            videosink_options.c_str(), fullscreen, video_sync, h265_support);
         video_renderer_start();
     }
 
@@ -2712,6 +2729,22 @@ void AirPlayServer::run()
         LOGI("any AirPlay audio cover-art will be written to file  %s", coverart_filename.c_str());
         write_coverart(coverart_filename.c_str(), (const void *)empty_image, sizeof(empty_image));
     }
+
+    /* set default resolutions for h264 or h265*/
+    if (!display[0] && !display[1])
+    {
+        if (h265_support)
+        {
+            display[0] = 3840;
+            display[1] = 2160;
+        }
+        else
+        {
+            display[0] = 1920;
+            display[1] = 1080;
+        }
+    }
+
     restart();
 }
 
