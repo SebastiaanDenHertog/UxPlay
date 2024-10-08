@@ -92,20 +92,47 @@ raop_handler_info(raop_conn_t *conn,
     plist_array_append_item(audio_latencies_node, audio_latencies_1_node);
     plist_dict_set_item(res_node, "audioLatencies", audio_latencies_node);
 
+    plist_t audio_latencies_node = plist_new_array();
+    plist_t audio_latencies_0_node = plist_new_dict();
+    plist_t audio_latencies_0_output_latency_micros_node = plist_new_bool(0);
+    plist_t audio_latencies_0_type_node = plist_new_uint(100);
+    plist_t audio_latencies_0_audio_type_node = plist_new_string("default");
+    plist_t audio_latencies_0_input_latency_micros_node = plist_new_uint(0);
+    plist_dict_set_item(audio_latencies_0_node, "type", audio_latencies_0_type_node);
+    plist_dict_set_item(audio_latencies_0_node, "inputLatencyMicros", audio_latencies_0_input_latency_micros_node);
+    plist_dict_set_item(audio_latencies_0_node, "audioType", audio_latencies_0_audio_type_node);
+    plist_dict_set_item(audio_latencies_0_node, "outputLatencyMicros", audio_latencies_0_output_latency_micros_node);
+    plist_array_append_item(audio_latencies_node, audio_latencies_0_node);
+
+    plist_t audio_latencies_1_node = plist_new_dict();
+    plist_t audio_latencies_1_output_latency_micros_node = plist_new_bool(0);
+    plist_t audio_latencies_1_type_node = plist_new_uint(101);
+    plist_t audio_latencies_1_audio_type_node = plist_new_string("default");
+    plist_t audio_latencies_1_input_latency_micros_node = plist_new_uint(0);
+    plist_dict_set_item(audio_latencies_1_node, "type", audio_latencies_1_type_node);
+    plist_dict_set_item(audio_latencies_1_node, "audioType", audio_latencies_1_audio_type_node);
+    plist_dict_set_item(audio_latencies_1_node, "inputLatencyMicros", audio_latencies_1_input_latency_micros_node);
+    plist_dict_set_item(audio_latencies_1_node, "outputLatencyMicros", audio_latencies_1_output_latency_micros_node);
+    plist_array_append_item(audio_latencies_node, audio_latencies_1_node);
+    plist_dict_set_item(res_node, "audioLatencies", audio_latencies_node);
+
     plist_t audio_formats_node = plist_new_array();
     plist_t audio_format_0_node = plist_new_dict();
     plist_t audio_format_0_type_node = plist_new_uint(100);
     plist_t audio_format_0_audio_input_formats_node = plist_new_uint(0x3fffffc);
     plist_t audio_format_0_audio_output_formats_node = plist_new_uint(0x3fffffc);
     plist_dict_set_item(audio_format_0_node, "audioOutputFormats", audio_format_0_audio_output_formats_node);
+    plist_dict_set_item(audio_format_0_node, "audioOutputFormats", audio_format_0_audio_output_formats_node);
     plist_dict_set_item(audio_format_0_node, "type", audio_format_0_type_node);
     plist_dict_set_item(audio_format_0_node, "audioInputFormats", audio_format_0_audio_input_formats_node);
     plist_array_append_item(audio_formats_node, audio_format_0_node);
+
 
     plist_t audio_format_1_node = plist_new_dict();
     plist_t audio_format_1_type_node = plist_new_uint(101);
     plist_t audio_format_1_audio_input_formats_node = plist_new_uint(0x3fffffc);
     plist_t audio_format_1_audio_output_formats_node = plist_new_uint(0x3fffffc);
+    plist_dict_set_item(audio_format_1_node, "audioOutputFormats", audio_format_1_audio_output_formats_node);
     plist_dict_set_item(audio_format_1_node, "audioOutputFormats", audio_format_1_audio_output_formats_node);
     plist_dict_set_item(audio_format_1_node, "type", audio_format_1_type_node);
     plist_dict_set_item(audio_format_1_node, "audioInputFormats", audio_format_1_audio_input_formats_node);
@@ -128,6 +155,7 @@ raop_handler_info(raop_conn_t *conn,
     plist_dict_set_item(res_node, "sourceVersion", source_version_node);
 
     plist_t keep_alive_send_stats_as_body_node = plist_new_bool(1);
+    plist_t keep_alive_send_stats_as_body_node = plist_new_bool(1);
     plist_dict_set_item(res_node, "keepAliveSendStatsAsBody", keep_alive_send_stats_as_body_node);
 
     plist_t model_node = plist_new_string(GLOBAL_MODEL);
@@ -138,6 +166,8 @@ raop_handler_info(raop_conn_t *conn,
 
     plist_t displays_node = plist_new_array();
     plist_t displays_0_node = plist_new_dict();
+    plist_t displays_0_width_physical_node = plist_new_uint(0);
+    plist_t displays_0_height_physical_node = plist_new_uint(0);
     plist_t displays_0_width_physical_node = plist_new_uint(0);
     plist_t displays_0_height_physical_node = plist_new_uint(0);
     plist_t displays_0_uuid_node = plist_new_string("e0ff8a27-6738-3d56-8a16-cc53aacee925");
@@ -158,6 +188,7 @@ raop_handler_info(raop_conn_t *conn,
     plist_dict_set_item(displays_0_node, "height", displays_0_height_node);
     plist_dict_set_item(displays_0_node, "widthPixels", displays_0_width_pixels_node);
     plist_dict_set_item(displays_0_node, "heightPixels", displays_0_height_pixels_node);
+    plist_dict_set_item(displays_0_node, "rotation", displays_0_rotation_node);    
     plist_dict_set_item(displays_0_node, "rotation", displays_0_rotation_node);    
     plist_dict_set_item(displays_0_node, "refreshRate", displays_0_refresh_rate_node);
     plist_dict_set_item(displays_0_node, "maxFPS", displays_0_max_fps_node);
@@ -356,6 +387,7 @@ raop_handler_pairsetup_pin(raop_conn_t *conn,
 	return;
     }
  authentication_failed:;
+    http_response_init(response, "RTSP/1.0", 470, "Client Authentication Failure");
     http_response_init(response, "RTSP/1.0", 470, "Client Authentication Failure");
 }
 
@@ -751,10 +783,13 @@ raop_handler_setup(raop_conn_t *conn,
 
 	// plist_t res_event_port_node = plist_new_uint(conn->raop->port);
 	plist_t res_event_port_node = plist_new_uint(0);
+	// plist_t res_event_port_node = plist_new_uint(conn->raop->port);
+	plist_t res_event_port_node = plist_new_uint(0);
         plist_t res_timing_port_node = plist_new_uint(timing_lport);
         plist_dict_set_item(res_root_node, "timingPort", res_timing_port_node);
         plist_dict_set_item(res_root_node, "eventPort", res_event_port_node);
 
+        logger_log(conn->raop->logger, LOGGER_DEBUG, "eport = %d, tport = %d", 0, timing_lport);
         logger_log(conn->raop->logger, LOGGER_DEBUG, "eport = %d, tport = %d", 0, timing_lport);
     }
 
